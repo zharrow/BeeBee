@@ -31,6 +31,7 @@ public:
     explicit MainWindow(QWidget* parent = nullptr);
     ~MainWindow();
 
+    void createConnectionDialog();
 private slots:
     // Contrôles audio
     void onPlayPauseClicked();
@@ -62,12 +63,30 @@ private slots:
     void onNetworkError(const QString& error);
 
 private:
+    // Méthodes de configuration UI
     void setupUI();
-    void setupMenus();
     void setupToolbar();
     void setupStatusBar();
-    void createConnectionDialog();
+    void connectSignals();
+    void applyModernStyle();
+    void cleanupConnections();
 
+    // Création des éléments UI
+    QWidget* createHeaderWidget();
+    QWidget* createLobbyPage();
+    QWidget* createGamePage();
+    QWidget* createConnectionCard();
+    QWidget* createRoomsPanel();
+    QWidget* createUsersPanel();
+    QWidget* createControlPanel();
+    QWidget* createPlaybackCard();
+
+    // Helpers pour créer des widgets stylisés
+    QLineEdit* createStyledLineEdit(const QString& placeholder, const QString& text);
+    QSpinBox* createStyledSpinBox(int min, int max, int value);
+    QPushButton* createStyledButton(const QString& text, const QString& style);
+
+    // Méthodes utilitaires
     void updatePlayButton();
     void updateNetworkStatus();
     void updateRoomDisplay();
@@ -92,11 +111,8 @@ private:
     QPushButton* m_stopBtn;
     QSpinBox* m_tempoSpin;
     QSlider* m_volumeSlider;
-    QLabel* m_tempoLabel;
-    QLabel* m_volumeLabel;
 
     // Contrôles réseau
-    QGroupBox* m_networkGroup;
     QPushButton* m_startServerBtn;
     QPushButton* m_connectBtn;
     QPushButton* m_disconnectBtn;

@@ -21,6 +21,8 @@ public:
     void updateRoomList(const QList<Room*>& rooms);
     void setCurrentUser(const QString& userId, const QString& userName);
 
+public slots:
+    QPushButton *createModernButton(const QString &text, const QString &color, const QString &hoverColor);
 signals:
     void createRoomRequested(const QString& name, const QString& password, int maxUsers);
     void joinRoomRequested(const QString& roomId, const QString& password);
@@ -43,6 +45,7 @@ private:
 
     QString m_currentUserId;
     QString m_currentUserName;
+    QPushButton * RoomListWidgetcreateModernButton(const char *, const char *, const char *);
 };
 
 class CreateRoomDialog : public QDialog {

@@ -36,27 +36,90 @@ void DrumGrid::setupGrid(int instruments, int steps) {
     m_instruments = instruments;
     m_steps = steps;
     m_cellStates.clear();
-    
+
     m_table->setRowCount(instruments);
     m_table->setColumnCount(steps);
-    
+
+    // Style moderne pour la table
+    m_table->setStyleSheet(R"(
+        QTableWidget {
+            background: rgba(255, 255, 255, 0.02);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            gridline-color: rgba(255, 255, 255, 0.05);
+        }
+
+        QHeaderView::section {
+            background: rgba(255, 255, 255, 0.05);
+            color: #e2e8f0;
+            border: none;
+            padding: 8px;
+            font-weight: bold;
+        }
+
+        QTableWidget::item {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        QTableWidget::item:hover {
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+        }
+    )");
+
     // Configuration de l'apparence
     m_table->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
     m_table->verticalHeader()->setSectionResizeMode(QHeaderView::Stretch);
     m_table->setSelectionMode(QAbstractItemView::NoSelection);
-    
+
     // Headers des colonnes (numéros des steps)
     for (int col = 0; col < steps; ++col) {
         m_table->setHorizontalHeaderItem(col, new QTableWidgetItem(QString::number(col + 1)));
     }
-    
+
     // Initialisation des cellules
     for (int row = 0; row < instruments; ++row) {
         for (int col = 0; col < steps; ++col) {
             QTableWidgetItem* item = new QTableWidgetItem("");
             item->setFlags(Qt::ItemIsEnabled);
+            item->setTextAlignment(Qt::AlignCenter);
             m_table->setItem(row, col, item);
             updateCellAppearance(row, col);
+        }
+    }
+}
+
+void DrumGrid::highlightCurrentStep() {
+    // Mise à jour de l'en-tête de colonne pour montrer le step actuel
+    for (int col = 0; col < m_steps; ++col) {
+        QTableWidgetItem* header = m_table->horizontalHeaderItem(col);
+        if (header) {
+            if (col == m_currentStep && m_playing) {
+                header->setBackground(QBrush(QColor(239, 68, 68)));
+                header->setForeground(Qt::white);
+
+                // Animer les cellules actives du step courant
+                for (int row = 0; row < m_instruments; ++row) {
+                    if (isCellActive(row, col)) {
+                        QTableWidgetItem* item = m_table->item(row, col);
+                        if (item) {
+                            item->setFont(QFont("Arial", 20, QFont::Bold));
+                        }
+                    }
+                }
+            } else {
+                header->setBackground(QBrush());
+                header->setForeground(QColor(226, 232, 240));
+
+                // Restaurer la taille normale
+                for (int row = 0; row < m_instruments; ++row) {
+                    QTableWidgetItem* item = m_table->item(row, col);
+                    if (item && !item->text().isEmpty()) {
+                        item->setFont(QFont("Arial", 16, QFont::Bold));
+                    }
+                }
+            }
         }
     }
 }
@@ -197,32 +260,27 @@ void DrumGrid::onStepTimer() {
 void DrumGrid::updateCellAppearance(int row, int col) {
     QTableWidgetItem* item = m_table->item(row, col);
     if (!item) return;
-    
+
     QPair<int,int> key(row, col);
     auto cellData = m_cellStates.value(key, {false, QString()});
     bool active = cellData.first;
     QString userId = cellData.second;
-    
+
     if (active) {
         QColor color = m_userColors.value(userId, QColor(100, 150, 255));
+        // Ajouter un effet de lueur pour les cellules actives
+        QString colorStyle = QString(R"(
+            background: %1;
+            border: 2px solid %2;
+            border-radius: 4px;
+        )").arg(color.name(), color.lighter(150).name());
+
         item->setBackground(QBrush(color));
         item->setText("●");
+        item->setForeground(Qt::white);
+        item->setFont(QFont("Arial", 16, QFont::Bold));
     } else {
-        item->setBackground(QBrush(QColor(240, 240, 240)));
+        item->setBackground(QBrush(QColor(255, 255, 255, 8)));
         item->setText("");
-    }
-}
-
-void DrumGrid::highlightCurrentStep() {
-    // Mise à jour de l'en-tête de colonne pour montrer le step actuel
-    for (int col = 0; col < m_steps; ++col) {
-        QTableWidgetItem* header = m_table->horizontalHeaderItem(col);
-        if (header) {
-            if (col == m_currentStep && m_playing) {
-                header->setBackground(QBrush(QColor(255, 100, 100)));
-            } else {
-                header->setBackground(QBrush());
-            }
-        }
     }
 }

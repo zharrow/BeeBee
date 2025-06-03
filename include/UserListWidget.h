@@ -22,7 +22,7 @@ signals:
     void transferHostRequested(const QString& userId);
 
 private slots:
-    void onLeaveRoomClicked();
+    // void onLeaveRoomClicked();
     void onUserContextMenu(const QPoint& point);
 
 private:
