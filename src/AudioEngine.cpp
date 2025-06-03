@@ -2,217 +2,198 @@
 #include <QDebug>
 #include <QStandardPaths>
 #include <QCoreApplication>
-#include <QMediaPlayer>
-#include <QAudioOutput>
+#include <QFileInfo>
 
 // Définition des constantes statiques
 const QStringList AudioEngine::DEFAULT_SAMPLES = {
-    "samples/kick.wav",
-    "samples/snare.wav",
-    "samples/hihat.wav",
-    "samples/openhat.wav",
-    "samples/crash.wav",
-    "samples/ride.wav",
-    "samples/tom1.wav",
-    "samples/tom2.wav"
+    "kick.wav", "snare.wav", "hihat.wav", "openhat.wav",
+    "crash.wav", "ride.wav", "tom1.wav", "tom2.wav"
 };
 
 const QStringList AudioEngine::DEFAULT_NAMES = {
-    "Kick",
-    "Snare",
-    "Hi-Hat",
-    "Open Hat",
-    "Crash",
-    "Ride",
-    "Tom 1",
-    "Tom 2"
+    "Kick", "Snare", "Hi-Hat", "Open Hat",
+    "Crash", "Ride", "Tom 1", "Tom 2"
 };
 
 AudioEngine::AudioEngine(QObject* parent)
     : QObject(parent)
     , m_volume(0.7f)
 {
-    qDebug() << "AudioEngine initialisé";
+    qDebug() << "AudioEngine initialisé avec QMediaPlayer";
 }
 
 AudioEngine::~AudioEngine() {
-    // Nettoyer les effets sonores
-    for (auto* effect : m_instruments) {
-        if (effect) {
-            effect->stop();
-            delete effect;
-        }
+    // Nettoyer les instruments
+    for (auto* instrument : m_instruments) {
+        delete instrument;
     }
     m_instruments.clear();
 }
 
 bool AudioEngine::loadSamples(const QString& samplesPath) {
-    // Debug : essayer plusieurs chemins
-    QStringList searchPaths = {
-        samplesPath,
-        QCoreApplication::applicationDirPath() + "/" + samplesPath,
-        QCoreApplication::applicationDirPath() + "/../" + samplesPath,
-        QDir::currentPath() + "/" + samplesPath,
-        "C:/Users/Florent/Desktop/Ynov/B3/DevDesktop/BeeBee/build/Desktop_Qt_6_9_0_MinGW_64_bit-Debug/samples"  // Chemin absolu pour test
-    };
+    QString samplesDir = findSamplesDirectory(samplesPath);
 
-    QDir samplesDir;
-    bool found = false;
-
-    for (const QString& path : searchPaths) {
-        samplesDir = QDir(path);
-        if (samplesDir.exists()) {
-            qDebug() << "Samples trouvés dans:" << samplesDir.absolutePath();
-            found = true;
-            break;
-        }
-    }
-
-    if (!found) {
-        qWarning() << "Aucun dossier samples trouvé dans les chemins:";
-        for (const QString& path : searchPaths) {
-            qWarning() << " -" << QDir(path).absolutePath();
-        }
+    if (samplesDir.isEmpty()) {
+        qWarning() << "Aucun dossier samples trouvé - Mode silencieux activé";
         setupDefaultInstruments();
         return false;
     }
 
-    bool allLoaded = true;
+    qDebug() << "Chargement des samples depuis:" << samplesDir;
+    bool allLoaded = loadSamplesFromDirectory(samplesDir);
 
-    if (!samplesDir.exists()) {
-        qWarning() << "Dossier samples non trouvé:" << samplesPath;
-        qWarning() << "Chemin absolu testé:" << samplesDir.absolutePath();
-        qWarning() << "Utilisation du mode silencieux";
-        setupDefaultInstruments();
-        return false;
-    }
-
-    qDebug() << "Chargement des samples depuis:" << samplesDir.absolutePath();
-
-    // Méthode 1: Essayer de charger les fichiers par défaut dans l'ordre
-    for (int i = 0; i < DEFAULT_SAMPLES.size() && i < 8; ++i) {
-        QString fileName = DEFAULT_SAMPLES[i].mid(8); // Enlever "samples/"
-        QString filePath = samplesDir.filePath(fileName);
-
-        if (QFile::exists(filePath)) {
-            loadSample(i, filePath, DEFAULT_NAMES[i]);
-            qDebug() << "Sample chargé:" << fileName << "-> instrument" << i;
-        } else {
-            qWarning() << "Fichier non trouvé:" << filePath;
-            // Créer un instrument vide pour cet ID
-            QSoundEffect* effect = new QSoundEffect(this);
-            effect->setVolume(m_volume);
-            m_instruments[i] = effect;
-            m_instrumentNames[i] = DEFAULT_NAMES[i];
-            allLoaded = false;
-        }
-    }
-
-    // Méthode 2: Si certains fichiers manquent, essayer de charger ce qui existe
-    if (!allLoaded) {
-        QStringList filters;
-        filters << "*.wav" << "*.mp3" << "*.ogg";
-        QFileInfoList files = samplesDir.entryInfoList(filters, QDir::Files);
-
-        qDebug() << "Fichiers trouvés dans samples:" << files.size();
-
-        for (const QFileInfo& fileInfo : files) {
-            QString fileName = fileInfo.baseName().toLower();
-            int instrumentId = -1;
-
-            // Mapping basé sur le nom du fichier
-            if (fileName.contains("kick") || fileName.contains("bd")) instrumentId = 0;
-            else if (fileName.contains("snare") || fileName.contains("sd")) instrumentId = 1;
-            else if (fileName.contains("hihat") || fileName.contains("hh")) {
-                if (fileName.contains("open")) instrumentId = 3;
-                else instrumentId = 2;
-            }
-            else if (fileName.contains("hat")) {
-                if (fileName.contains("open")) instrumentId = 3;
-                else instrumentId = 2;
-            }
-            else if (fileName.contains("crash")) instrumentId = 4;
-            else if (fileName.contains("ride")) instrumentId = 5;
-            else if (fileName.contains("tom")) {
-                if (fileName.contains("1") || fileName.contains("high")) instrumentId = 6;
-                else if (fileName.contains("2") || fileName.contains("mid")) instrumentId = 7;
-                else instrumentId = 6; // Par défaut tom1
-            }
-
-            if (instrumentId >= 0 && instrumentId < 8 && !m_instruments.contains(instrumentId)) {
-                loadSample(instrumentId, fileInfo.filePath(), fileInfo.baseName());
-                qDebug() << "Mapping automatique:" << fileInfo.fileName() << "-> instrument" << instrumentId;
-            }
-        }
-    }
-
-    // S'assurer que tous les instruments 0-7 existent
-    for (int i = 0; i < 8; ++i) {
-        if (!m_instruments.contains(i)) {
-            qWarning() << "Instrument" << i << "manquant, création d'un instrument silencieux";
-            QSoundEffect* effect = new QSoundEffect(this);
-            effect->setVolume(m_volume);
-            m_instruments[i] = effect;
-            m_instrumentNames[i] = DEFAULT_NAMES[i];
-            allLoaded = false;
-        }
-    }
+    // S'assurer que tous les instruments existent
+    ensureAllInstrumentsExist();
 
     qDebug() << "Instruments chargés:" << m_instruments.keys();
     return allLoaded;
 }
 
-void AudioEngine::setupDefaultInstruments() {
-    // Configuration par défaut sans fichiers audio
-    for (int i = 0; i < 8; ++i) {
-        m_instrumentNames[i] = DEFAULT_NAMES[i];
+QString AudioEngine::findSamplesDirectory(const QString& basePath) const {
+    QStringList searchPaths = {
+        basePath,
+        QCoreApplication::applicationDirPath() + "/" + basePath,
+        QCoreApplication::applicationDirPath() + "/../" + basePath,
+        QDir::currentPath() + "/" + basePath
+    };
 
-        // Créer un QSoundEffect vide (sera muet)
-        QSoundEffect* effect = new QSoundEffect(this);
-        effect->setVolume(m_volume);
-        connect(effect, &QSoundEffect::playingChanged, this, &AudioEngine::onSoundFinished);
-        m_instruments[i] = effect;
-
-        emit sampleLoaded(i, DEFAULT_NAMES[i]);
+    for (const QString& path : searchPaths) {
+        QDir dir(path);
+        if (dir.exists()) {
+            return dir.absolutePath();
+        }
     }
 
+    return QString();
+}
+
+bool AudioEngine::loadSamplesFromDirectory(const QString& dirPath) {
+    QDir dir(dirPath);
+    bool allLoaded = true;
+
+    // Essayer de charger les fichiers par défaut
+    for (int i = 0; i < DEFAULT_SAMPLES.size() && i < MAX_INSTRUMENTS; ++i) {
+        QString filePath = dir.filePath(DEFAULT_SAMPLES[i]);
+
+        if (QFile::exists(filePath)) {
+            loadSample(i, filePath, DEFAULT_NAMES[i]);
+        } else {
+            qWarning() << "Fichier non trouvé:" << filePath;
+            allLoaded = false;
+        }
+    }
+
+    // Si certains manquent, charger ce qui existe
+    if (!allLoaded) {
+        loadAvailableSamples(dir);
+    }
+
+    return allLoaded;
+}
+
+void AudioEngine::loadAvailableSamples(const QDir& dir) {
+    QStringList filters = {"*.wav", "*.mp3", "*.ogg"};
+    QFileInfoList files = dir.entryInfoList(filters, QDir::Files);
+
+    for (const QFileInfo& fileInfo : files) {
+        int instrumentId = mapFileNameToInstrument(fileInfo.baseName());
+
+        if (instrumentId >= 0 && instrumentId < MAX_INSTRUMENTS &&
+            !m_instruments.contains(instrumentId)) {
+            loadSample(instrumentId, fileInfo.filePath(), fileInfo.baseName());
+        }
+    }
+}
+
+int AudioEngine::mapFileNameToInstrument(const QString& fileName) const {
+    QString lowerName = fileName.toLower();
+
+    if (lowerName.contains("kick") || lowerName.contains("bd")) return 0;
+    if (lowerName.contains("snare") || lowerName.contains("sd")) return 1;
+    if (lowerName.contains("hihat") || lowerName.contains("hh")) {
+        return lowerName.contains("open") ? 3 : 2;
+    }
+    if (lowerName.contains("hat")) {
+        return lowerName.contains("open") ? 3 : 2;
+    }
+    if (lowerName.contains("crash")) return 4;
+    if (lowerName.contains("ride")) return 5;
+    if (lowerName.contains("tom")) {
+        if (lowerName.contains("1") || lowerName.contains("high")) return 6;
+        if (lowerName.contains("2") || lowerName.contains("mid")) return 7;
+        return 6; // Par défaut tom1
+    }
+
+    return -1;
+}
+
+void AudioEngine::ensureAllInstrumentsExist() {
+    for (int i = 0; i < MAX_INSTRUMENTS; ++i) {
+        if (!m_instruments.contains(i)) {
+            createSilentInstrument(i, DEFAULT_NAMES[i]);
+        }
+    }
+}
+
+void AudioEngine::setupDefaultInstruments() {
+    for (int i = 0; i < MAX_INSTRUMENTS; ++i) {
+        createSilentInstrument(i, DEFAULT_NAMES[i]);
+    }
     qDebug() << "Instruments par défaut configurés (mode silencieux)";
 }
 
 void AudioEngine::loadSample(int instrumentId, const QString& filePath, const QString& name) {
-    if (instrumentId < 0 || instrumentId >= 8) {
+    if (instrumentId < 0 || instrumentId >= MAX_INSTRUMENTS) {
         qWarning() << "ID d'instrument invalide:" << instrumentId;
         return;
     }
 
-    // Supprimer l'ancien effet s'il existe
+    // Supprimer l'ancien instrument s'il existe
     if (m_instruments.contains(instrumentId)) {
-        QSoundEffect* oldEffect = m_instruments[instrumentId];
-        oldEffect->stop();
-        delete oldEffect;
+        delete m_instruments[instrumentId];
     }
 
-    QUrl url = QUrl::fromLocalFile(filePath);
+    auto* instrument = new InstrumentPlayer();
+    instrument->player = std::make_unique<QMediaPlayer>(this);
+    instrument->audioOutput = std::make_unique<QAudioOutput>(this);
+    instrument->name = name;
+    instrument->filePath = filePath;
 
-    auto player = new QMediaPlayer;
-    auto  audioOutput = new QAudioOutput;
-    player->setAudioOutput(audioOutput);
+    // Configuration du player
+    instrument->player->setAudioOutput(instrument->audioOutput.get());
+    instrument->player->setSource(QUrl::fromLocalFile(filePath));
+    instrument->audioOutput->setVolume(m_volume);
 
-    player->setSource(url);
-    audioOutput->setVolume(50);
-    player->play();
+    // Connexion pour gérer les erreurs
+    connect(instrument->player.get(), &QMediaPlayer::errorOccurred,
+            this, [this, instrumentId](QMediaPlayer::Error error, const QString& errorString) {
+                qWarning() << "Erreur instrument" << instrumentId << ":" << errorString;
+                emit loadingError(QString("Erreur instrument %1: %2").arg(instrumentId).arg(errorString));
+            });
 
+    m_instruments[instrumentId] = instrument;
 
-    // QSoundEffect* effect = new QSoundEffect(this);
-    // effect->setSource(url);
-    // effect->setVolume(m_volume);
+    qDebug() << "Sample chargé:" << name << "pour l'instrument" << instrumentId;
+    emit sampleLoaded(instrumentId, name);
+}
 
-    // connect(effect, &QSoundEffect::playingChanged, this, &AudioEngine::onSoundFinished);
+void AudioEngine::createSilentInstrument(int instrumentId, const QString& name) {
+    // Supprimer l'ancien instrument s'il existe
+    if (m_instruments.contains(instrumentId)) {
+        delete m_instruments[instrumentId];
+    }
 
-    // m_instruments[instrumentId] = effect;
-    m_instrumentNames[instrumentId] = name;
+    auto* instrument = new InstrumentPlayer();
+    instrument->player = std::make_unique<QMediaPlayer>(this);
+    instrument->audioOutput = std::make_unique<QAudioOutput>(this);
+    instrument->name = name;
 
-    qDebug() << "Sample chargé:" << name << "pour l'instrument" << instrumentId << "depuis" << filePath;
+    instrument->player->setAudioOutput(instrument->audioOutput.get());
+    instrument->audioOutput->setVolume(m_volume);
+
+    m_instruments[instrumentId] = instrument;
+
+    qWarning() << "Instrument" << instrumentId << "créé sans fichier audio (silencieux)";
     emit sampleLoaded(instrumentId, name);
 }
 
@@ -220,34 +201,38 @@ void AudioEngine::setVolume(float volume) {
     m_volume = qBound(0.0f, volume, 1.0f);
 
     // Appliquer le volume à tous les instruments
-    for (auto* effect : m_instruments) {
-        if (effect) {
-            effect->setVolume(m_volume);
+    for (auto it = m_instruments.begin(); it != m_instruments.end(); ++it) {
+        InstrumentPlayer* instrument = it.value();
+        if (instrument && instrument->audioOutput) {
+            instrument->audioOutput->setVolume(m_volume);
         }
     }
 }
 
 void AudioEngine::playInstrument(int instrumentId) {
-    if (!m_instruments.contains(instrumentId)) {
+    auto it = m_instruments.find(instrumentId);
+    if (it == m_instruments.end()) {
         qWarning() << "Instrument non trouvé:" << instrumentId;
-        qWarning() << "Instruments disponibles:" << m_instruments.keys();
         return;
     }
 
-    QSoundEffect* effect = m_instruments[instrumentId];
-    if (effect) {
-        if (!effect->source().isValid()) {
-            qDebug() << "Instrument" << instrumentId << "n'a pas de source audio (mode silencieux)";
-            return;
-        }
-
-        // Arrêter et redémarrer pour permettre la répétition rapide
-        if (effect->isPlaying()) {
-            effect->stop();
-        }
-        effect->play();
-        qDebug() << "Lecture instrument" << instrumentId << ":" << m_instrumentNames[instrumentId];
+    InstrumentPlayer* instrument = it.value();
+    if (!instrument || !instrument->player) {
+        qWarning() << "Instrument" << instrumentId << "non initialisé";
+        return;
     }
+
+    // Vérifier si un fichier est chargé
+    if (instrument->filePath.isEmpty()) {
+        qDebug() << "Instrument" << instrumentId << "en mode silencieux";
+        return;
+    }
+
+    // Redémarrer la lecture depuis le début
+    instrument->player->setPosition(0);
+    instrument->player->play();
+
+    qDebug() << "Lecture instrument" << instrumentId << ":" << instrument->name;
 }
 
 void AudioEngine::playMultipleInstruments(const QList<int>& instruments) {
@@ -267,18 +252,20 @@ void AudioEngine::setInstrumentSample(int instrumentId, const QString& samplePat
 }
 
 QString AudioEngine::getInstrumentName(int instrumentId) const {
-    return m_instrumentNames.value(instrumentId, QString("Instrument %1").arg(instrumentId));
+    auto it = m_instruments.find(instrumentId);
+    if (it != m_instruments.end()) {
+        InstrumentPlayer* instrument = it.value();
+        if (instrument) {
+            return instrument->name;
+        }
+    }
+    return QString("Instrument %1").arg(instrumentId);
 }
 
 QStringList AudioEngine::getInstrumentNames() const {
     QStringList names;
-    for (int i = 0; i < 8; ++i) {
+    for (int i = 0; i < MAX_INSTRUMENTS; ++i) {
         names.append(getInstrumentName(i));
     }
     return names;
-}
-
-void AudioEngine::onSoundFinished() {
-    // Slot pour gérer la fin de lecture des sons si nécessaire
-    // Actuellement pas d'action spécifique requise
 }
