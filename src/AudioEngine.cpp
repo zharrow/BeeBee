@@ -2,6 +2,8 @@
 #include <QDebug>
 #include <QStandardPaths>
 #include <QCoreApplication>
+#include <QMediaPlayer>
+#include <QAudioOutput>
 
 // Définition des constantes statiques
 const QStringList AudioEngine::DEFAULT_SAMPLES = {
@@ -45,7 +47,36 @@ AudioEngine::~AudioEngine() {
 }
 
 bool AudioEngine::loadSamples(const QString& samplesPath) {
-    QDir samplesDir(samplesPath);
+    // Debug : essayer plusieurs chemins
+    QStringList searchPaths = {
+        samplesPath,
+        QCoreApplication::applicationDirPath() + "/" + samplesPath,
+        QCoreApplication::applicationDirPath() + "/../" + samplesPath,
+        QDir::currentPath() + "/" + samplesPath,
+        "C:/Users/Florent/Desktop/Ynov/B3/DevDesktop/BeeBee/build/Desktop_Qt_6_9_0_MinGW_64_bit-Debug/samples"  // Chemin absolu pour test
+    };
+
+    QDir samplesDir;
+    bool found = false;
+
+    for (const QString& path : searchPaths) {
+        samplesDir = QDir(path);
+        if (samplesDir.exists()) {
+            qDebug() << "Samples trouvés dans:" << samplesDir.absolutePath();
+            found = true;
+            break;
+        }
+    }
+
+    if (!found) {
+        qWarning() << "Aucun dossier samples trouvé dans les chemins:";
+        for (const QString& path : searchPaths) {
+            qWarning() << " -" << QDir(path).absolutePath();
+        }
+        setupDefaultInstruments();
+        return false;
+    }
+
     bool allLoaded = true;
 
     if (!samplesDir.exists()) {
@@ -161,14 +192,24 @@ void AudioEngine::loadSample(int instrumentId, const QString& filePath, const QS
         delete oldEffect;
     }
 
-    QSoundEffect* effect = new QSoundEffect(this);
     QUrl url = QUrl::fromLocalFile(filePath);
-    effect->setSource(url);
-    effect->setVolume(m_volume);
 
-    connect(effect, &QSoundEffect::playingChanged, this, &AudioEngine::onSoundFinished);
+    auto player = new QMediaPlayer;
+    auto  audioOutput = new QAudioOutput;
+    player->setAudioOutput(audioOutput);
 
-    m_instruments[instrumentId] = effect;
+    player->setSource(url);
+    audioOutput->setVolume(50);
+    player->play();
+
+
+    // QSoundEffect* effect = new QSoundEffect(this);
+    // effect->setSource(url);
+    // effect->setVolume(m_volume);
+
+    // connect(effect, &QSoundEffect::playingChanged, this, &AudioEngine::onSoundFinished);
+
+    // m_instruments[instrumentId] = effect;
     m_instrumentNames[instrumentId] = name;
 
     qDebug() << "Sample chargé:" << name << "pour l'instrument" << instrumentId << "depuis" << filePath;
