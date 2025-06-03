@@ -26,7 +26,6 @@ MainWindow::MainWindow(QWidget* parent)
 
     setupUI();
     setupMenus();
-    setupToolbar();
     setupStatusBar();
 
     // Connexions audio
@@ -209,30 +208,6 @@ void MainWindow::setupMenus() {
     fileMenu->addAction("&Sauvegarder", QKeySequence::Save, [this]() { /* TODO */ });
     fileMenu->addSeparator();
     fileMenu->addAction("&Quitter", QKeySequence::Quit, this, &QWidget::close);
-
-    // Menu Salon
-    QMenu* roomMenu = menuBar->addMenu("&Salon");
-    roomMenu->addAction("&Créer un salon", [this]() {
-        if (!m_inGameMode) {
-            onCreateRoomRequested("", "", 4);
-        }
-    });
-    roomMenu->addAction("&Actualiser la liste", this, &MainWindow::onRefreshRoomsRequested);
-    roomMenu->addSeparator();
-    roomMenu->addAction("&Quitter le salon", this, &MainWindow::onLeaveRoomRequested);
-}
-
-void MainWindow::setupToolbar() {
-    QToolBar* toolbar = addToolBar("Principal");
-
-    if (m_inGameMode) {
-        toolbar->addAction("Play/Pause", this, &MainWindow::onPlayPauseClicked);
-        toolbar->addAction("Stop", this, &MainWindow::onStopClicked);
-        toolbar->addSeparator();
-    }
-
-    toolbar->addAction("Lobby", this, &MainWindow::switchToLobbyMode);
-    toolbar->addAction("Actualiser", this, &MainWindow::onRefreshRoomsRequested);
 }
 
 void MainWindow::setupStatusBar() {
