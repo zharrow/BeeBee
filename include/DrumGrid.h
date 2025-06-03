@@ -1,0 +1,61 @@
+#pragma once
+#include <QWidget>
+#include <QTableWidget>
+#include <QTimer>
+#include <QColor>
+#include <QMap>
+#include "Protocol.h"
+
+class DrumGrid : public QWidget {
+    Q_OBJECT
+    
+public:
+    explicit DrumGrid(QWidget* parent = nullptr);
+    
+    // Configuration de la grille
+    void setupGrid(int instruments = 8, int steps = 16);
+    
+    // Contrôle de lecture
+    void setPlaying(bool playing);
+    void setTempo(int bpm);
+    void setCurrentStep(int step);
+    
+    // État de la grille
+    bool isCellActive(int row, int col) const;
+    void setCellActive(int row, int col, bool active, const QString& userId = QString());
+    QJsonObject getGridState() const;
+    void setGridState(const QJsonObject& state);
+    
+    // Configuration des instruments
+    void setInstrumentNames(const QStringList& names);
+    
+    // Couleurs utilisateur
+    void setUserColor(const QString& userId, const QColor& color);
+    
+signals:
+    void cellClicked(int row, int col, bool active);
+    void stepTriggered(int step, const QList<int>& activeInstruments);
+    
+private slots:
+    void onCellClicked(int row, int column);
+    void onStepTimer();
+    
+private:
+    void updateCellAppearance(int row, int col);
+    void highlightCurrentStep();
+    
+    QTableWidget* m_table;
+    QTimer* m_stepTimer;
+    
+    int m_instruments;
+    int m_steps;
+    int m_currentStep;
+    int m_tempo; // BPM
+    bool m_playing;
+    
+    QStringList m_instrumentNames;
+    QMap<QString, QColor> m_userColors;
+    
+    // État des cellules [row][col] -> {active, userId}
+    QMap<QPair<int,int>, QPair<bool,QString>> m_cellStates;
+};
