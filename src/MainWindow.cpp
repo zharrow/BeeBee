@@ -244,6 +244,8 @@ void MainWindow::switchToLobbyMode() {
     m_stackedWidget->setCurrentIndex(0);
     setWindowTitle("DrumBox Multiplayer - Lobby");
 
+    onLeaveRoomRequested();
+
     // Arrêter la lecture si en cours
     if (m_isPlaying) {
         onStopClicked();
