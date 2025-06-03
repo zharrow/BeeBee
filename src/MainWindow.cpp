@@ -169,6 +169,39 @@ void MainWindow::setupUI() {
     volumeLayout->addWidget(m_volumeSlider);
     playLayout->addLayout(volumeLayout);
 
+    // Contrôles pour les colonnes
+    QGroupBox* gridControlGroup = new QGroupBox("Grille", this);
+    QVBoxLayout* gridControlLayout = new QVBoxLayout(gridControlGroup);
+
+    // Contrôles de colonnes
+    QHBoxLayout* columnLayout = new QHBoxLayout();
+    QLabel* columnLabel = new QLabel("Colonnes:", this);
+    m_removeColumnBtn = new QPushButton("-", this);
+    m_removeColumnBtn->setMaximumWidth(30);
+    m_removeColumnBtn->setToolTip("Enlever une colonne");
+
+    m_stepCountLabel = new QLabel("16", this);
+    m_stepCountLabel->setAlignment(Qt::AlignCenter);
+    m_stepCountLabel->setMinimumWidth(30);
+    m_stepCountLabel->setStyleSheet("font-weight: bold;");
+
+    m_addColumnBtn = new QPushButton("+", this);
+    m_addColumnBtn->setMaximumWidth(30);
+    m_addColumnBtn->setToolTip("Ajouter une colonne");
+
+    columnLayout->addWidget(columnLabel);
+    columnLayout->addWidget(m_removeColumnBtn);
+    columnLayout->addWidget(m_stepCountLabel);
+    columnLayout->addWidget(m_addColumnBtn);
+    columnLayout->addStretch();
+
+    gridControlLayout->addLayout(columnLayout);
+
+    // Connexions pour les boutons de colonnes
+    connect(m_addColumnBtn, &QPushButton::clicked, this, &MainWindow::onAddColumnClicked);
+    connect(m_removeColumnBtn, &QPushButton::clicked, this, &MainWindow::onRemoveColumnClicked);
+    connect(m_drumGrid, &DrumGrid::stepCountChanged, this, &MainWindow::onStepCountChanged);
+
     // Connexions audio
     connect(m_playPauseBtn, &QPushButton::clicked, this, &MainWindow::onPlayPauseClicked);
     connect(m_stopBtn, &QPushButton::clicked, this, &MainWindow::onStopClicked);
@@ -177,6 +210,7 @@ void MainWindow::setupUI() {
 
     // Assemblage du panneau de contrôle
     controlLayout->addWidget(playGroup);
+    controlLayout->addWidget(gridControlGroup);
     controlLayout->addWidget(m_userListWidget);
     controlLayout->addStretch();
 
@@ -765,6 +799,52 @@ void MainWindow::handleNetworkMessage(MessageType type, const QJsonObject& data)
     default:
         break;
     }
+}
+
+void MainWindow::onAddColumnClicked() {
+    m_drumGrid->addColumn();
+
+    // Synchronisation réseau si connecté
+    if (m_networkManager->isServerRunning() || m_networkManager->isClientConnected()) {
+        // Envoyer l'état complet de la grille avec le nouveau nombre de colonnes
+        QJsonObject gridState = m_drumGrid->getGridState();
+        QByteArray message = Protocol::createSyncResponseMessage(gridState);
+
+        if (m_networkManager->isServer()) {
+            m_networkManager->broadcastMessage(message);
+        } else {
+            m_networkManager->sendMessage(message);
+        }
+    }
+}
+
+void MainWindow::onRemoveColumnClicked() {
+    m_drumGrid->removeColumn();
+
+    // Synchronisation réseau si connecté
+    if (m_networkManager->isServerRunning() || m_networkManager->isClientConnected()) {
+        // Envoyer l'état complet de la grille avec le nouveau nombre de colonnes
+        QJsonObject gridState = m_drumGrid->getGridState();
+        QByteArray message = Protocol::createSyncResponseMessage(gridState);
+
+        if (m_networkManager->isServer()) {
+            m_networkManager->broadcastMessage(message);
+        } else {
+            m_networkManager->sendMessage(message);
+        }
+    }
+}
+
+void MainWindow::onStepCountChanged(int newCount) {
+    // Mettre à jour l'affichage du nombre de colonnes
+    m_stepCountLabel->setText(QString::number(newCount));
+
+    // Activer/désactiver les boutons selon les limites
+    m_removeColumnBtn->setEnabled(newCount > 8);
+    m_addColumnBtn->setEnabled(newCount < 64);
+
+    // Mettre à jour le tooltip avec plus d'informations
+    m_stepCountLabel->setToolTip(QString("Nombre de pas: %1 (min: 8, max: 64)").arg(newCount));
 }
 
 void MainWindow::createConnectionDialog() {
