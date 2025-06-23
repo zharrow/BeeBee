@@ -10,6 +10,8 @@
 #include <QGraphicsDropShadowEffect>
 #include <QPropertyAnimation>
 #include <QPixmap>
+#include <QScreen>
+#include <QApplication>
 
 MainWindow::MainWindow(QWidget* parent)
     : QMainWindow(parent)
@@ -39,10 +41,38 @@ MainWindow::MainWindow(QWidget* parent)
     // État initial
     switchToLobbyMode();
     updateNetworkStatus();
+
+    // Configuration de la fenêtre principale
+    setWindowTitle("BeeBee - Collaborative Drum Machine");  // ← Changez ici le nom
+    setWindowIcon(QIcon(":/icons/logo.png"));  // ← Votre nouveau logo
+
+    // Taille minimale et par défaut
+    setMinimumSize(1000, 700);
+    resize(1200, 800);
+
+    // Centrer la fenêtre
+    centerWindow();
+
+    // Initialisation des composants
+    initializeComponents();
+    setupUI();
+    connectSignals();
+    applyModernStyle();
+
 }
 
 MainWindow::~MainWindow() {
     cleanupConnections();
+}
+
+void MainWindow::centerWindow() {
+    const QRect screenGeometry = QApplication::primaryScreen()->geometry();
+    const QRect windowGeometry = geometry();
+
+    const int x = (screenGeometry.width() - windowGeometry.width()) / 2;
+    const int y = (screenGeometry.height() - windowGeometry.height()) / 2;
+
+    move(x, y);
 }
 
 void MainWindow::setupUI() {

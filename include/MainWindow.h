@@ -62,6 +62,10 @@ private slots:
     void onConnectionLost();
     void onNetworkError(const QString& error);
 
+    // Méthode Utilitaire
+    void centerWindow();
+    void initializeComponents();
+
 private:
     // Méthodes de configuration UI
     void setupUI();

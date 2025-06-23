@@ -36,11 +36,16 @@ int main(int argc, char *argv[]) {
     }
     QApplication app(argc, argv);
 
-    // Configuration de l'application
-    app.setApplicationName("DrumBox Multiplayer");
-    app.setApplicationVersion("2.0");
-    app.setOrganizationName("Student Project");
-    app.setOrganizationDomain("drumbox.local");
+    // Métadonnées de l'application
+    app.setApplicationName("BeeBee");
+    app.setApplicationDisplayName("BeeBee - Collaborative Drum Machine");
+    app.setApplicationVersion("1.0.0");
+    app.setOrganizationName("Votre Organisation");
+
+    // Icône par défaut pour toutes les fenêtres
+    app.setWindowIcon(QIcon(":/icons/logo.png"));
+
+    return app.exec();
 
 // Style moderne pour Windows
 #ifdef Q_OS_WIN
