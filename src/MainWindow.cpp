@@ -29,6 +29,18 @@ MainWindow::MainWindow(QWidget* parent)
     m_currentUserId = QUuid::createUuid().toString();
     m_currentUserName = "User";
 
+    // Configuration de la fenêtre principale
+    setWindowTitle("BeeBee - Collaborative Drum Machine");
+    setWindowIcon(QIcon(":/icons/logo.png"));
+
+    // Taille minimale et par défaut
+    setMinimumSize(1000, 700);
+    resize(1200, 800);
+
+    // Centrer la fenêtre
+    centerWindow();
+
+    // Configuration de l'interface
     setupUI();
     setupToolbar();
     setupStatusBar();
@@ -41,24 +53,6 @@ MainWindow::MainWindow(QWidget* parent)
     // État initial
     switchToLobbyMode();
     updateNetworkStatus();
-
-    // Configuration de la fenêtre principale
-    setWindowTitle("BeeBee - Collaborative Drum Machine");  // ← Changez ici le nom
-    setWindowIcon(QIcon(":/icons/logo.png"));  // ← Votre nouveau logo
-
-    // Taille minimale et par défaut
-    setMinimumSize(1000, 700);
-    resize(1200, 800);
-
-    // Centrer la fenêtre
-    centerWindow();
-
-    // Initialisation des composants
-    initializeComponents();
-    setupUI();
-    connectSignals();
-    applyModernStyle();
-
 }
 
 MainWindow::~MainWindow() {
@@ -106,11 +100,6 @@ void MainWindow::setupUI() {
     // Configuration initiale
     m_roomListWidget->setCurrentUser(m_currentUserId, m_currentUserName);
     m_userListWidget->setCurrentUser(m_currentUserId);
-
-    // Titre de la fenêtre
-    setWindowTitle("DrumBox Multiplayer");
-    resize(1400, 800);
-    setMinimumSize(1200, 700);
 }
 
 QWidget* MainWindow::createHeaderWidget() {
@@ -124,7 +113,7 @@ QWidget* MainWindow::createHeaderWidget() {
     // Logo
     QLabel* logoLabel = new QLabel(this);
     logoLabel->setObjectName("logoLabel");
-    QPixmap logo("logo.png"); // Remplacez par le chemin de votre logo
+    QPixmap logo(":/icons/logo.png");
     if (!logo.isNull()) {
         logoLabel->setPixmap(logo.scaled(60, 60, Qt::KeepAspectRatio, Qt::SmoothTransformation));
     } else {
@@ -134,7 +123,7 @@ QWidget* MainWindow::createHeaderWidget() {
     }
 
     // Titre
-    QLabel* titleLabel = new QLabel("DrumBox Multiplayer", this);
+    QLabel* titleLabel = new QLabel("BeeBee - Collaborative Drum Machine", this);
     titleLabel->setObjectName("titleLabel");
 
     // Statut de connexion
@@ -407,7 +396,7 @@ void MainWindow::connectSignals() {
 }
 
 void MainWindow::applyModernStyle() {
-    // Définir la feuille de style moderne
+    // Style moderne pour l'application
     QString styleSheet = R"(
         /* Couleurs principales */
         * {
@@ -581,13 +570,12 @@ void MainWindow::cleanupConnections() {
 }
 
 void MainWindow::setupToolbar() {
-    // Supprimer la toolbar par défaut
-    // Pas de toolbar dans la version moderne
+    // Pas de toolbar dans cette version moderne
 }
 
 void MainWindow::setupStatusBar() {
     statusBar()->setObjectName("statusBar");
-    statusBar()->showMessage("Bienvenue dans DrumBox Multiplayer !");
+    statusBar()->showMessage("Bienvenue dans BeeBee - Collaborative Drum Machine !");
 }
 
 void MainWindow::switchToLobbyMode() {
@@ -625,9 +613,6 @@ void MainWindow::switchToGameMode() {
     animation->setEasingCurve(QEasingCurve::OutCubic);
     animation->start(QAbstractAnimation::DeleteWhenStopped);
 }
-
-// Conservez toutes les autres méthodes de votre MainWindow.cpp original (onPlayPauseClicked, onStopClicked, etc.)
-// Les méthodes slots restent identiques...
 
 // Implémentation de toutes les autres méthodes slots...
 void MainWindow::onPlayPauseClicked() {
@@ -909,7 +894,7 @@ void MainWindow::onNetworkError(const QString& error) {
 
 // Méthodes utilitaires
 void MainWindow::updatePlayButton() {
-    m_playPauseBtn->setText(m_isPlaying ? "Pause" : "Play");
+    m_playPauseBtn->setText(m_isPlaying ? "⏸ Pause" : "▶ Play");
 }
 
 void MainWindow::updateNetworkStatus() {

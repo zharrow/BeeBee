@@ -64,7 +64,6 @@ private slots:
 
     // Méthode Utilitaire
     void centerWindow();
-    void initializeComponents();
 
 private:
     // Méthodes de configuration UI
