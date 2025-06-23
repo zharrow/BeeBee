@@ -3,11 +3,11 @@
 #include <QStandardPaths>
 #include <QCoreApplication>
 #include <QFileInfo>
+#include <QCollator>
 
 // Définition des constantes statiques
-const QStringList AudioEngine::DEFAULT_SAMPLES = {
-    "kick.wav", "snare.wav", "hihat.wav", "openhat.wav",
-    "crash.wav", "ride.wav", "tom1.wav", "tom2.wav"
+const QStringList AudioEngine::SUPPORTED_EXTENSIONS = {
+    "*.wav", "*.mp3", "*.ogg", "*.flac", "*.aac", "*.m4a"
 };
 
 const QStringList AudioEngine::DEFAULT_NAMES = {
@@ -18,8 +18,9 @@ const QStringList AudioEngine::DEFAULT_NAMES = {
 AudioEngine::AudioEngine(QObject* parent)
     : QObject(parent)
     , m_volume(0.7f)
+    , m_maxInstruments(DEFAULT_MAX_INSTRUMENTS) // 0 = illimité
 {
-    qDebug() << "AudioEngine initialisé avec QMediaPlayer";
+    qDebug() << "AudioEngine initialisé avec système illimité";
 }
 
 AudioEngine::~AudioEngine() {
@@ -40,12 +41,26 @@ bool AudioEngine::loadSamples(const QString& samplesPath) {
     }
 
     qDebug() << "Chargement des samples depuis:" << samplesDir;
+    if (m_maxInstruments > 0) {
+        qDebug() << "Limite d'instruments:" << m_maxInstruments;
+    } else {
+        qDebug() << "Aucune limite d'instruments";
+    }
+
     bool allLoaded = loadSamplesFromDirectory(samplesDir);
 
-    // S'assurer que tous les instruments existent
-    ensureAllInstrumentsExist();
+    // Si aucun fichier n'a été chargé, utiliser les instruments par défaut
+    if (m_instruments.isEmpty()) {
+        qWarning() << "Aucun fichier audio trouvé - Utilisation d'instruments silencieux";
+        setupDefaultInstruments();
+        return false;
+    }
 
-    qDebug() << "Instruments chargés:" << m_instruments.keys();
+    // Trier les instruments par nom pour un affichage cohérent
+    sortInstrumentsByName();
+
+    qDebug() << "Instruments chargés:" << m_instruments.size();
+    emit instrumentCountChanged(m_instruments.size());
     return allLoaded;
 }
 
@@ -69,85 +84,94 @@ QString AudioEngine::findSamplesDirectory(const QString& basePath) const {
 
 bool AudioEngine::loadSamplesFromDirectory(const QString& dirPath) {
     QDir dir(dirPath);
-    bool allLoaded = true;
-
-    // Essayer de charger les fichiers par défaut
-    for (int i = 0; i < DEFAULT_SAMPLES.size() && i < MAX_INSTRUMENTS; ++i) {
-        QString filePath = dir.filePath(DEFAULT_SAMPLES[i]);
-
-        if (QFile::exists(filePath)) {
-            loadSample(i, filePath, DEFAULT_NAMES[i]);
-        } else {
-            qWarning() << "Fichier non trouvé:" << filePath;
-            allLoaded = false;
-        }
-    }
-
-    // Si certains manquent, charger ce qui existe
-    if (!allLoaded) {
-        loadAvailableSamples(dir);
-    }
-
-    return allLoaded;
+    loadAllAvailableSamples(dir);
+    return !m_instruments.isEmpty();
 }
 
-void AudioEngine::loadAvailableSamples(const QDir& dir) {
-    QStringList filters = {"*.wav", "*.mp3", "*.ogg"};
-    QFileInfoList files = dir.entryInfoList(filters, QDir::Files);
+void AudioEngine::loadAllAvailableSamples(const QDir& dir) {
+    QFileInfoList files = dir.entryInfoList(SUPPORTED_EXTENSIONS, QDir::Files, QDir::Name);
+
+    qDebug() << "Fichiers audio trouvés:" << files.size();
+
+    int instrumentId = 0;
+    int skippedFiles = 0;
 
     for (const QFileInfo& fileInfo : files) {
-        int instrumentId = mapFileNameToInstrument(fileInfo.baseName());
-
-        if (instrumentId >= 0 && instrumentId < MAX_INSTRUMENTS &&
-            !m_instruments.contains(instrumentId)) {
-            loadSample(instrumentId, fileInfo.filePath(), fileInfo.baseName());
+        // Vérifier la limite si elle est définie
+        if (m_maxInstruments > 0 && instrumentId >= m_maxInstruments) {
+            skippedFiles = files.size() - instrumentId;
+            qWarning() << "Limite d'instruments atteinte (" << m_maxInstruments
+                       << "), " << skippedFiles << "fichiers ignorés";
+            emit maxInstrumentsReached(m_maxInstruments, files.size());
+            break;
         }
+
+        QString cleanName = cleanFileName(fileInfo.baseName());
+        loadSample(instrumentId, fileInfo.filePath(), cleanName);
+        instrumentId++;
+    }
+
+    if (skippedFiles > 0) {
+        qDebug() << "Statistiques de chargement:";
+        qDebug() << "  - Fichiers trouvés:" << files.size();
+        qDebug() << "  - Fichiers chargés:" << instrumentId;
+        qDebug() << "  - Fichiers ignorés:" << skippedFiles;
+        qDebug() << "  - Limite actuelle:" << (m_maxInstruments > 0 ? QString::number(m_maxInstruments) : "Illimitée");
+    } else {
+        qDebug() << "Tous les" << instrumentId << "instruments chargés depuis" << files.size() << "fichiers trouvés";
     }
 }
 
-int AudioEngine::mapFileNameToInstrument(const QString& fileName) const {
-    QString lowerName = fileName.toLower();
+QString AudioEngine::cleanFileName(const QString& fileName) const {
+    QString cleaned = fileName;
 
-    if (lowerName.contains("kick") || lowerName.contains("bd")) return 0;
-    if (lowerName.contains("snare") || lowerName.contains("sd")) return 1;
-    if (lowerName.contains("hihat") || lowerName.contains("hh")) {
-        return lowerName.contains("open") ? 3 : 2;
-    }
-    if (lowerName.contains("hat")) {
-        return lowerName.contains("open") ? 3 : 2;
-    }
-    if (lowerName.contains("crash")) return 4;
-    if (lowerName.contains("ride")) return 5;
-    if (lowerName.contains("tom")) {
-        if (lowerName.contains("1") || lowerName.contains("high")) return 6;
-        if (lowerName.contains("2") || lowerName.contains("mid")) return 7;
-        return 6; // Par défaut tom1
+    // Enlever les underscores et les remplacer par des espaces
+    cleaned = cleaned.replace('_', ' ');
+
+    // Capitaliser la première lettre de chaque mot
+    QStringList words = cleaned.split(' ', Qt::SkipEmptyParts);
+    for (QString& word : words) {
+        if (!word.isEmpty()) {
+            word[0] = word[0].toUpper();
+        }
     }
 
-    return -1;
+    return words.join(' ');
 }
 
-void AudioEngine::ensureAllInstrumentsExist() {
-    for (int i = 0; i < MAX_INSTRUMENTS; ++i) {
-        if (!m_instruments.contains(i)) {
-            createSilentInstrument(i, DEFAULT_NAMES[i]);
-        }
+void AudioEngine::sortInstrumentsByName() {
+    // Créer une liste temporaire pour trier
+    QList<QPair<QString, InstrumentPlayer*>> sortedInstruments;
+
+    for (auto it = m_instruments.begin(); it != m_instruments.end(); ++it) {
+        sortedInstruments.append({it.value()->name, it.value()});
+    }
+
+    // Trier par nom en utilisant QCollator pour un tri naturel
+    QCollator collator;
+    collator.setNumericMode(true);
+    std::sort(sortedInstruments.begin(), sortedInstruments.end(),
+              [&collator](const QPair<QString, InstrumentPlayer*>& a,
+                          const QPair<QString, InstrumentPlayer*>& b) {
+                  return collator.compare(a.first, b.first) < 0;
+              });
+
+    // Reconstruire la map avec les nouveaux IDs
+    m_instruments.clear();
+    for (int i = 0; i < sortedInstruments.size(); ++i) {
+        m_instruments[i] = sortedInstruments[i].second;
     }
 }
 
 void AudioEngine::setupDefaultInstruments() {
-    for (int i = 0; i < MAX_INSTRUMENTS; ++i) {
+    for (int i = 0; i < DEFAULT_NAMES.size(); ++i) {
         createSilentInstrument(i, DEFAULT_NAMES[i]);
     }
+    emit instrumentCountChanged(DEFAULT_NAMES.size());
     qDebug() << "Instruments par défaut configurés (mode silencieux)";
 }
 
 void AudioEngine::loadSample(int instrumentId, const QString& filePath, const QString& name) {
-    if (instrumentId < 0 || instrumentId >= MAX_INSTRUMENTS) {
-        qWarning() << "ID d'instrument invalide:" << instrumentId;
-        return;
-    }
-
     // Supprimer l'ancien instrument s'il existe
     if (m_instruments.contains(instrumentId)) {
         delete m_instruments[instrumentId];
@@ -166,9 +190,10 @@ void AudioEngine::loadSample(int instrumentId, const QString& filePath, const QS
 
     // Connexion pour gérer les erreurs
     connect(instrument->player.get(), &QMediaPlayer::errorOccurred,
-            this, [this, instrumentId](QMediaPlayer::Error error, const QString& errorString) {
-                qWarning() << "Erreur instrument" << instrumentId << ":" << errorString;
-                emit loadingError(QString("Erreur instrument %1: %2").arg(instrumentId).arg(errorString));
+            this, [this, instrumentId, name](QMediaPlayer::Error error, const QString& errorString) {
+                qWarning() << "Erreur instrument" << instrumentId << "(" << name << "):" << errorString;
+                emit loadingError(QString("Erreur instrument %1 (%2): %3")
+                                      .arg(instrumentId).arg(name).arg(errorString));
             });
 
     m_instruments[instrumentId] = instrument;
@@ -193,7 +218,7 @@ void AudioEngine::createSilentInstrument(int instrumentId, const QString& name) 
 
     m_instruments[instrumentId] = instrument;
 
-    qWarning() << "Instrument" << instrumentId << "créé sans fichier audio (silencieux)";
+    qWarning() << "Instrument" << instrumentId << "(" << name << ") créé sans fichier audio (silencieux)";
     emit sampleLoaded(instrumentId, name);
 }
 
@@ -224,7 +249,7 @@ void AudioEngine::playInstrument(int instrumentId) {
 
     // Vérifier si un fichier est chargé
     if (instrument->filePath.isEmpty()) {
-        qDebug() << "Instrument" << instrumentId << "en mode silencieux";
+        qDebug() << "Instrument" << instrumentId << "(" << instrument->name << ") en mode silencieux";
         return;
     }
 
@@ -244,7 +269,8 @@ void AudioEngine::playMultipleInstruments(const QList<int>& instruments) {
 void AudioEngine::setInstrumentSample(int instrumentId, const QString& samplePath) {
     if (QFile::exists(samplePath)) {
         QFileInfo fileInfo(samplePath);
-        loadSample(instrumentId, samplePath, fileInfo.baseName());
+        QString cleanName = cleanFileName(fileInfo.baseName());
+        loadSample(instrumentId, samplePath, cleanName);
     } else {
         qWarning() << "Fichier sample non trouvé:" << samplePath;
         emit loadingError(QString("Fichier non trouvé: %1").arg(samplePath));
@@ -264,8 +290,10 @@ QString AudioEngine::getInstrumentName(int instrumentId) const {
 
 QStringList AudioEngine::getInstrumentNames() const {
     QStringList names;
-    for (int i = 0; i < MAX_INSTRUMENTS; ++i) {
-        names.append(getInstrumentName(i));
+    for (int i = 0; i < m_instruments.size(); ++i) {
+        if (m_instruments.contains(i)) {
+            names.append(getInstrumentName(i));
+        }
     }
     return names;
 }

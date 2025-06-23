@@ -1,4 +1,4 @@
-// Protocol.h - Version corrigée
+// Protocol.h - Version corrigée avec INSTRUMENT_SYNC
 #pragma once
 #include <QJsonObject>
 #include <QJsonDocument>
@@ -28,6 +28,9 @@ enum class MessageType {
     PLAY_STATE,
     SYNC_REQUEST,
     SYNC_RESPONSE,
+
+    // Synchronisation des instruments
+    INSTRUMENT_SYNC,
 
     // Communication
     CHAT_MESSAGE,
@@ -86,6 +89,9 @@ public:
     static QByteArray createPlayStateMessage(bool playing);
     static QByteArray createSyncRequestMessage();
     static QByteArray createSyncResponseMessage(const QJsonObject& gridState);
+
+    // Nouveau message pour synchroniser les instruments
+    static QByteArray createInstrumentSyncMessage(const QStringList& instrumentNames);
 
     // Fonctions utilitaires
     static QString messageTypeToString(MessageType type);

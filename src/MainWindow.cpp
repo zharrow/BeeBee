@@ -7,6 +7,7 @@
 #include <QStatusBar>
 #include <QMessageBox>
 #include <QUuid>
+#include <QInputDialog>
 
 MainWindow::MainWindow(QWidget* parent)
     : QMainWindow(parent)
@@ -28,12 +29,72 @@ MainWindow::MainWindow(QWidget* parent)
     setupMenus();
     setupStatusBar();
 
+    // Configuration pour permettre plus d'instruments
+    // Par défaut : illimité (0), ou définir une limite personnalisée
+    m_audioEngine->setMaxInstruments(0); // 0 = illimité
+
     // Connexions audio
     connect(m_drumGrid, &DrumGrid::stepTriggered, this, [this](int step, const QList<int>& instruments) {
         m_audioEngine->playMultipleInstruments(instruments);
     });
     connect(m_drumGrid, &DrumGrid::cellClicked, this, &MainWindow::onGridCellClicked);
     connect(m_drumGrid, &DrumGrid::stepTriggered, this, &MainWindow::onStepTriggered);
+
+    // Connexion pour la mise à jour dynamique des instruments
+    connect(m_audioEngine, &AudioEngine::instrumentCountChanged, this, [this](int newCount) {
+        // Mettre à jour la grille avec le nouveau nombre d'instruments
+        m_drumGrid->setInstrumentCount(newCount);
+
+        // Mettre à jour les noms d'instruments
+        QStringList instrumentNames = m_audioEngine->getInstrumentNames();
+        m_drumGrid->setInstrumentNames(instrumentNames);
+
+        qDebug() << "Nombre d'instruments mis à jour:" << newCount;
+        statusBar()->showMessage(QString("Instruments chargés: %1").arg(newCount), 3000);
+    });
+
+    // Connexion pour gérer l'avertissement de limite atteinte
+    connect(m_audioEngine, &AudioEngine::maxInstrumentsReached, this,
+            [this](int maxCount, int totalFiles) {
+                QString message = QString("Limite d'instruments atteinte !\n\n"
+                                          "Fichiers trouvés: %1\n"
+                                          "Instruments chargés: %2\n"
+                                          "Fichiers ignorés: %3\n\n"
+                                          "Voulez-vous augmenter la limite ou charger tous les fichiers ?")
+                                      .arg(totalFiles)
+                                      .arg(maxCount)
+                                      .arg(totalFiles - maxCount);
+
+                QMessageBox msgBox(this);
+                msgBox.setWindowTitle("Limite d'instruments");
+                msgBox.setText(message);
+                msgBox.setIcon(QMessageBox::Question);
+
+                QPushButton* unlimitedBtn = msgBox.addButton("Charger tous", QMessageBox::ActionRole);
+                QPushButton* limitBtn = msgBox.addButton("Garder la limite", QMessageBox::RejectRole);
+                QPushButton* customBtn = msgBox.addButton("Limite personnalisée", QMessageBox::ActionRole);
+
+                msgBox.exec();
+
+                if (msgBox.clickedButton() == unlimitedBtn) {
+                    // Supprimer la limite et recharger
+                    m_audioEngine->setMaxInstruments(0);
+                    reloadAudioSamples();
+                    statusBar()->showMessage("Tous les instruments ont été chargés", 3000);
+                } else if (msgBox.clickedButton() == customBtn) {
+                    // Demander une limite personnalisée
+                    bool ok;
+                    int newLimit = QInputDialog::getInt(this, "Limite personnalisée",
+                                                        "Nombre maximum d'instruments:",
+                                                        maxCount, 1, 1000, 1, &ok);
+                    if (ok && newLimit > maxCount) {
+                        m_audioEngine->setMaxInstruments(newLimit);
+                        reloadAudioSamples();
+                        statusBar()->showMessage(QString("Limite augmentée à %1 instruments").arg(newLimit), 3000);
+                    }
+                }
+                // Si "Garder la limite" : ne rien faire
+            });
 
     // Connexions réseau
     connect(m_networkManager, &NetworkManager::messageReceived, this, &MainWindow::onMessageReceived);
@@ -168,7 +229,7 @@ void MainWindow::setupUI() {
     volumeLayout->addWidget(m_volumeSlider);
     playLayout->addLayout(volumeLayout);
 
-    // Contrôles pour les colonnes
+    // Contrôles pour la grille
     QGroupBox* gridControlGroup = new QGroupBox("Grille", this);
     QVBoxLayout* gridControlLayout = new QVBoxLayout(gridControlGroup);
 
@@ -196,10 +257,33 @@ void MainWindow::setupUI() {
 
     gridControlLayout->addLayout(columnLayout);
 
+    // Affichage du nombre d'instruments
+    QHBoxLayout* instrumentLayout = new QHBoxLayout();
+    QLabel* instrumentLabel = new QLabel("Instruments:", this);
+    m_instrumentCountLabel = new QLabel("8", this);
+    m_instrumentCountLabel->setAlignment(Qt::AlignCenter);
+    m_instrumentCountLabel->setMinimumWidth(30);
+    m_instrumentCountLabel->setStyleSheet("font-weight: bold; color: #2E8B57;");
+
+    instrumentLayout->addWidget(instrumentLabel);
+    instrumentLayout->addWidget(m_instrumentCountLabel);
+    instrumentLayout->addStretch();
+
+    gridControlLayout->addLayout(instrumentLayout);
+
     // Connexions pour les boutons de colonnes
     connect(m_addColumnBtn, &QPushButton::clicked, this, &MainWindow::onAddColumnClicked);
     connect(m_removeColumnBtn, &QPushButton::clicked, this, &MainWindow::onRemoveColumnClicked);
     connect(m_drumGrid, &DrumGrid::stepCountChanged, this, &MainWindow::onStepCountChanged);
+
+    // Connexion pour mettre à jour l'affichage du nombre d'instruments avec limite
+    connect(m_drumGrid, &DrumGrid::instrumentCountChanged, this, [this](int newCount) {
+        m_instrumentCountLabel->setText(QString::number(newCount));
+
+        int maxInstruments = m_audioEngine->getMaxInstruments();
+        QString limitInfo = (maxInstruments == 0) ? "illimitée" : QString("max: %1").arg(maxInstruments);
+        m_instrumentCountLabel->setToolTip(QString("Instruments: %1 (%2)").arg(newCount).arg(limitInfo));
+    });
 
     // Connexions audio
     connect(m_playPauseBtn, &QPushButton::clicked, this, &MainWindow::onPlayPauseClicked);
@@ -242,6 +326,61 @@ void MainWindow::setupMenus() {
     fileMenu->addAction("&Sauvegarder", QKeySequence::Save, [this]() { /* TODO */ });
     fileMenu->addSeparator();
     fileMenu->addAction("&Quitter", QKeySequence::Quit, this, &QWidget::close);
+
+    // Menu Audio avec gestion des limites
+    QMenu* audioMenu = menuBar->addMenu("&Audio");
+    audioMenu->addAction("&Recharger les samples", this, &MainWindow::reloadAudioSamples);
+    audioMenu->addSeparator();
+    audioMenu->addAction("&Ouvrir dossier samples", [this]() {
+        QString samplesPath = QCoreApplication::applicationDirPath() + "/samples";
+        QDesktopServices::openUrl(QUrl::fromLocalFile(samplesPath));
+    });
+
+    audioMenu->addSeparator();
+
+    QAction* setLimitAction = audioMenu->addAction("&Définir limite d'instruments");
+    connect(setLimitAction, &QAction::triggered, [this]() {
+        bool ok;
+        int currentLimit = m_audioEngine->getMaxInstruments();
+        QString currentText = (currentLimit == 0) ? "Illimité" : QString::number(currentLimit);
+
+        int newLimit = QInputDialog::getInt(this, "Limite d'instruments",
+                                            QString("Limite actuelle: %1\n\nNouvelle limite (0 = illimité):").arg(currentText),
+                                            currentLimit, 0, 1000, 1, &ok);
+        if (ok) {
+            m_audioEngine->setMaxInstruments(newLimit);
+            reloadAudioSamples();
+
+            QString message = (newLimit == 0) ? "Limite supprimée - Tous les instruments seront chargés"
+                                              : QString("Limite définie à %1 instruments").arg(newLimit);
+            statusBar()->showMessage(message, 3000);
+        }
+    });
+
+    QAction* showStatsAction = audioMenu->addAction("&Statistiques des instruments");
+    connect(showStatsAction, &QAction::triggered, [this]() {
+        int currentCount = m_audioEngine->getInstrumentCount();
+        int currentLimit = m_audioEngine->getMaxInstruments();
+        QString limitText = (currentLimit == 0) ? "Illimitée" : QString::number(currentLimit);
+
+        // Compter les fichiers dans le dossier samples
+        QString samplesPath = QCoreApplication::applicationDirPath() + "/samples";
+        QDir samplesDir(samplesPath);
+        QStringList filters = {"*.wav", "*.mp3", "*.ogg", "*.flac", "*.aac", "*.m4a"};
+        int totalFiles = samplesDir.entryList(filters, QDir::Files).size();
+
+        QString stats = QString("Statistiques des instruments:\n\n"
+                                "Instruments chargés: %1\n"
+                                "Fichiers audio détectés: %2\n"
+                                "Limite actuelle: %3\n"
+                                "Dossier samples: %4")
+                            .arg(currentCount)
+                            .arg(totalFiles)
+                            .arg(limitText)
+                            .arg(samplesPath);
+
+        QMessageBox::information(this, "Statistiques", stats);
+    });
 }
 
 void MainWindow::setupStatusBar() {
@@ -274,9 +413,6 @@ void MainWindow::switchToGameMode() {
     updateRoomDisplay();
 }
 
-// Suite avec toutes les autres méthodes de votre fichier original...
-
-// Implémentation de toutes les autres méthodes slots...
 void MainWindow::onPlayPauseClicked() {
     m_isPlaying = !m_isPlaying;
     m_drumGrid->setPlaying(m_isPlaying);
@@ -352,6 +488,23 @@ void MainWindow::onGridCellClicked(int row, int col, bool active) {
 
 void MainWindow::onStepTriggered(int step, const QList<int>& activeInstruments) {
     // L'AudioEngine gère déjà la lecture via la connexion directe
+}
+
+void MainWindow::reloadAudioSamples() {
+    int previousCount = m_audioEngine->getInstrumentCount();
+
+    if (m_audioEngine->loadSamples()) {
+        int newCount = m_audioEngine->getInstrumentCount();
+        statusBar()->showMessage(QString("Samples rechargés: %1 instruments (était %2)").arg(newCount).arg(previousCount), 3000);
+
+        // Log détaillé
+        qDebug() << "Rechargement terminé:";
+        qDebug() << "  - Instruments précédents:" << previousCount;
+        qDebug() << "  - Nouveaux instruments:" << newCount;
+        qDebug() << "  - Limite actuelle:" << (m_audioEngine->getMaxInstruments() == 0 ? "Illimitée" : QString::number(m_audioEngine->getMaxInstruments()));
+    } else {
+        statusBar()->showMessage("Aucun sample trouvé - Mode silencieux", 3000);
+    }
 }
 
 // Méthodes réseau
@@ -603,8 +756,9 @@ void MainWindow::updateRoomDisplay() {
 
 void MainWindow::syncGridWithNetwork() {
     if (m_networkManager->isServerRunning()) {
-        // Le serveur diffuse son état
+        // Le serveur diffuse son état complet
         QJsonObject gridState = m_drumGrid->getGridState();
+        gridState["instrumentNames"] = QJsonArray::fromStringList(m_audioEngine->getInstrumentNames());
         QByteArray message = Protocol::createSyncResponseMessage(gridState);
         m_networkManager->broadcastMessage(message);
     } else if (m_networkManager->isClientConnected()) {
@@ -751,6 +905,7 @@ void MainWindow::handleNetworkMessage(MessageType type, const QJsonObject& data)
     case MessageType::SYNC_REQUEST: {
         if (m_networkManager->isServer()) {
             QJsonObject gridState = m_drumGrid->getGridState();
+            gridState["instrumentNames"] = QJsonArray::fromStringList(m_audioEngine->getInstrumentNames());
             QByteArray response = Protocol::createSyncResponseMessage(gridState);
             m_networkManager->sendMessage(response);
         }
@@ -762,6 +917,36 @@ void MainWindow::handleNetworkMessage(MessageType type, const QJsonObject& data)
         m_tempoSpin->setValue(data["tempo"].toInt(120));
         m_isPlaying = data["playing"].toBool(false);
         updatePlayButton();
+
+        // Mettre à jour les instruments si présents
+        if (data.contains("instrumentNames")) {
+            QJsonArray namesArray = data["instrumentNames"].toArray();
+            QStringList instrumentNames;
+            for (const auto& nameValue : namesArray) {
+                instrumentNames.append(nameValue.toString());
+            }
+            m_drumGrid->setInstrumentNames(instrumentNames);
+        }
+
+        if (data.contains("instrumentCount")) {
+            int instrumentCount = data["instrumentCount"].toInt();
+            m_drumGrid->setInstrumentCount(instrumentCount);
+        }
+        break;
+    }
+
+    case MessageType::INSTRUMENT_SYNC: {
+        QJsonArray namesArray = data["instrumentNames"].toArray();
+        QStringList instrumentNames;
+        for (const auto& nameValue : namesArray) {
+            instrumentNames.append(nameValue.toString());
+        }
+        m_drumGrid->setInstrumentNames(instrumentNames);
+
+        int instrumentCount = data["instrumentCount"].toInt();
+        m_drumGrid->setInstrumentCount(instrumentCount);
+
+        statusBar()->showMessage(QString("Instruments synchronisés: %1").arg(instrumentCount), 2000);
         break;
     }
 
@@ -783,6 +968,7 @@ void MainWindow::onAddColumnClicked() {
     if (m_networkManager->isServerRunning() || m_networkManager->isClientConnected()) {
         // Envoyer l'état complet de la grille avec le nouveau nombre de colonnes
         QJsonObject gridState = m_drumGrid->getGridState();
+        gridState["instrumentNames"] = QJsonArray::fromStringList(m_audioEngine->getInstrumentNames());
         QByteArray message = Protocol::createSyncResponseMessage(gridState);
 
         if (m_networkManager->isServer()) {
@@ -800,6 +986,7 @@ void MainWindow::onRemoveColumnClicked() {
     if (m_networkManager->isServerRunning() || m_networkManager->isClientConnected()) {
         // Envoyer l'état complet de la grille avec le nouveau nombre de colonnes
         QJsonObject gridState = m_drumGrid->getGridState();
+        gridState["instrumentNames"] = QJsonArray::fromStringList(m_audioEngine->getInstrumentNames());
         QByteArray message = Protocol::createSyncResponseMessage(gridState);
 
         if (m_networkManager->isServer()) {
@@ -823,5 +1010,9 @@ void MainWindow::onStepCountChanged(int newCount) {
 }
 
 void MainWindow::createConnectionDialog() {
+    // TODO: Implémenter si nécessaire
+}
+
+void MainWindow::setupToolbar() {
     // TODO: Implémenter si nécessaire
 }
