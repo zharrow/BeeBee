@@ -50,6 +50,8 @@ private:
     void processClientMessage(QTcpSocket *client, const QByteArray &data);
     QString getClientId(QTcpSocket *socket) const;
 
+    void sendInitialRoomList(const QString& clientId);
+
     QTcpServer *m_server;
     QMap<QString, QTcpSocket *> m_clients;
     QMap<QTcpSocket*, QByteArray> m_clientBuffers;

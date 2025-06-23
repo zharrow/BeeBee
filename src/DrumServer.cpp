@@ -91,33 +91,44 @@ void DrumServer::broadcastMessage(const QByteArray &message)
 }
 
 void DrumServer::sendMessageToClient(const QString& clientId, const QByteArray& message) {
+    qDebug() << "[DEBUG] === DIAGNOSTIC sendMessageToClient ===";
     qDebug() << "[DEBUG] Tentative d'envoi à clientId =" << clientId;
+    qDebug() << "[DEBUG] Clients dans m_clients:" << m_clients.keys();
+    qDebug() << "[DEBUG] Client existe dans m_clients:" << m_clients.contains(clientId);
 
-    // Vérifier que le client existe dans la map
     if (!m_clients.contains(clientId)) {
         qWarning() << "[SERVER] Client non trouvé dans m_clients:" << clientId;
-        qDebug() << "[DEBUG] Clients disponibles:" << m_clients.keys();
         return;
     }
 
     QTcpSocket* socket = m_clients[clientId];
+    qDebug() << "[DEBUG] Socket récupéré:" << (socket != nullptr);
+
     if (!socket) {
         qWarning() << "[SERVER] Socket null pour client:" << clientId;
         return;
     }
 
+    qDebug() << "[DEBUG] État du socket:" << socket->state();
+    qDebug() << "[DEBUG] ConnectedState =" << QAbstractSocket::ConnectedState;
+
     if (socket->state() != QAbstractSocket::ConnectedState) {
-        qWarning() << "[SERVER] Client" << clientId << "non connecté, état:" << socket->state();
+        qWarning() << "[SERVER] Client non connecté:" << clientId << "État:" << socket->state();
         return;
     }
 
     qint64 written = socket->write(message);
+    qDebug() << "[DEBUG] Bytes écrits:" << written << "/" << message.size();
+
     if (written != message.size()) {
-        qWarning() << "[SERVER] Erreur d'envoi partiel à" << clientId << ":" << written << "/" << message.size();
+        qWarning() << "[SERVER] Erreur d'envoi partiel:" << written << "/" << message.size();
     } else {
-        qDebug() << "[SERVER] Message envoyé avec succès à" << clientId << "(" << message.size() << "bytes)";
+        qDebug() << "[SERVER] Message envoyé avec succès à" << clientId;
     }
+    qDebug() << "[DEBUG] === FIN DIAGNOSTIC ===";
 }
+
+
 
 
 
@@ -139,98 +150,57 @@ void DrumServer::onNewConnection() {
         QTcpSocket* socket = m_server->nextPendingConnection();
         QString clientId = generateClientId();
 
-        // Enregistrement cohérent du client
+        qDebug() << "[SERVER] === ENREGISTREMENT CLIENT ===";
+        qDebug() << "[SERVER] Nouveau client ID:" << clientId;
+        qDebug() << "[SERVER] Socket valide:" << (socket != nullptr);
+        qDebug() << "[SERVER] État initial du socket:" << socket->state();
+
         m_clients[clientId] = socket;
         m_socketToId[socket] = clientId;
-        m_clientBuffers[socket] = QByteArray();
 
-        qDebug() << "[SERVER] Nouveau client connecté :" << clientId;
-        qDebug() << "[DEBUG] Clients enregistrés:" << m_clients.keys();
+        qDebug() << "[SERVER] Nouveau client connecté:" << clientId;
 
-        connect(socket, &QTcpSocket::readyRead, this, [this, socket]() {
-            QString currentClientId = m_socketToId.value(socket);
-            if (currentClientId.isEmpty()) {
-                qWarning() << "[SERVER] Socket sans ID client";
-                return;
-            }
-
-            m_clientBuffers[socket].append(socket->readAll());
-            QByteArray& buffer = m_clientBuffers[socket];
-
-            while (buffer.size() >= 4) {
-                QDataStream sizeStream(buffer);
-                sizeStream.setByteOrder(QDataStream::BigEndian);
-                quint32 messageSize;
-                sizeStream >> messageSize;
-
-                if (buffer.size() < 4 + static_cast<int>(messageSize))
-                    break;
-
-                QByteArray completeMessage = buffer.left(4 + messageSize);
-                buffer.remove(0, 4 + messageSize);
-
-                MessageType type;
-                QJsonObject content;
-                if (!Protocol::parseMessage(completeMessage, type, content)) {
-                    qWarning() << "[SERVER] Message invalide";
-                    continue;
-                }
-
-                qDebug() << "[SERVER] Message reçu de" << currentClientId << ":" << Protocol::messageTypeToString(type);
-
-                if (type == MessageType::ROOM_LIST_REQUEST && m_roomManager) {
-                    QJsonArray roomArray;
-                    for (Room* room : m_roomManager->getPublicRooms()) {
-                        QJsonObject obj;
-                        obj["id"] = room->getId();
-                        obj["name"] = room->getName();
-                        obj["userCount"] = room->getUserCount();
-                        roomArray.append(obj);
-                    }
-
-                    QByteArray response = Protocol::createRoomListResponseMessage(roomArray);
-                    qDebug() << "[DEBUG] Envoi de la liste des salles à" << currentClientId;
-                    sendMessageToClient(currentClientId, response);
-                }
-
-                emit messageReceived(completeMessage, currentClientId);
-            }
-        });
+        // Connexion simple pour la réception de données
+        connect(socket, &QTcpSocket::readyRead, this, &DrumServer::onClientDataReceived);
 
         connect(socket, &QTcpSocket::disconnected, this, [this, socket, clientId]() {
-            qDebug() << "[SERVER] Client déconnecté :" << clientId;
-
+            qDebug() << "[SERVER] Client déconnecté:" << clientId;
             m_clients.remove(clientId);
             m_socketToId.remove(socket);
             m_clientBuffers.remove(socket);
             socket->deleteLater();
-
             emit clientDisconnected(clientId);
         });
 
-        // Envoi initial de la liste des salles
-        if (m_roomManager) {
-            QJsonArray roomArray;
-            for (Room* room : m_roomManager->getPublicRooms()) {
-                QJsonObject obj;
-                obj["id"] = room->getId();
-                obj["name"] = room->getName();
-                obj["userCount"] = room->getUserCount();
-                roomArray.append(obj);
+        // Envoi initial de la liste des salles avec un délai
+        QTimer::singleShot(100, this, [this, clientId]() {
+            if (m_clients.contains(clientId)) {
+                sendInitialRoomList(clientId);
             }
-
-            QByteArray initialMessage = Protocol::createRoomListResponseMessage(roomArray);
-            qDebug() << "[DEBUG] Envoi initial de la liste des salles à" << clientId;
-
-            // Utiliser QTimer::singleShot pour envoyer après que la connexion soit complètement établie
-            QTimer::singleShot(100, this, [this, clientId, initialMessage]() {
-                sendMessageToClient(clientId, initialMessage);
-            });
-        }
+        });
 
         emit clientConnected(clientId);
     }
 }
+
+void DrumServer::sendInitialRoomList(const QString& clientId) {
+    if (!m_roomManager) return;
+
+    qDebug() << "[SERVER] Envoi initial de la liste des salles à" << clientId;
+
+    QList<Room*> publicRooms = m_roomManager->getPublicRooms();
+    QJsonArray roomArray;
+    for (Room* room : publicRooms) {
+        if (room) {
+            roomArray.append(room->toJson());
+        }
+    }
+
+    QByteArray response = Protocol::createRoomListResponseMessage(roomArray);
+    sendMessageToClient(clientId, response);
+}
+
+
 
 
 QString DrumServer::generateClientId() const
@@ -264,60 +234,41 @@ void DrumServer::onClientDisconnected()
     socket->deleteLater();
 }
 
-void DrumServer::onClientDataReceived()
-{
-    QTcpSocket *socket = qobject_cast<QTcpSocket *>(sender());
-    if (!socket)
-        return;
+void DrumServer::onClientDataReceived() {
+    QTcpSocket* socket = qobject_cast<QTcpSocket*>(sender());
+    if (!socket) return;
 
-    QString clientId = getClientId(socket);
-    if (clientId.isEmpty())
-    {
-        qWarning() << "Données reçues d'un client non identifié";
+    QString clientId = m_socketToId.value(socket);
+    if (clientId.isEmpty()) {
+        qWarning() << "[SERVER] Socket sans ID client";
         return;
     }
 
-    QByteArray &buffer = m_clientBuffers[socket];
-    QByteArray newData = socket->readAll();
-    buffer.append(newData);
+    QByteArray& buffer = m_clientBuffers[socket];
+    buffer.append(socket->readAll());
 
-    qDebug() << "Données reçues du client" << clientId << ":" << newData.size() << "bytes";
-
-    // Traitement des messages complets
-    while (buffer.size() >= 4)
-    {
+    while (buffer.size() >= 4) {
         QDataStream stream(buffer);
         stream.setByteOrder(QDataStream::BigEndian);
-
         quint32 messageSize;
         stream >> messageSize;
 
-        // Validation de la taille du message
-        if (messageSize > 1024 * 1024)
-        { // 1MB max
-            qWarning() << "Message trop volumineux du client" << clientId << ":" << messageSize << "bytes";
+        if (messageSize > 1024 * 1024) {
+            qWarning() << "[SERVER] Message trop volumineux";
             socket->disconnectFromHost();
             return;
         }
 
-        if (buffer.size() >= 4 + messageSize)
-        {
+        if (buffer.size() >= 4 + messageSize) {
             QByteArray message = buffer.mid(0, 4 + messageSize);
             buffer.remove(0, 4 + messageSize);
-
-            qDebug() << "Message complet reçu du client" << clientId << ":" << messageSize << "bytes";
             processClientMessage(socket, message);
-        }
-        else
-        {
-            // Message incomplet, attendre plus de données
-            qDebug() << "Message incomplet du client" << clientId
-                     << "- attendu:" << (4 + messageSize)
-                     << "reçu:" << buffer.size();
+        } else {
             break;
         }
     }
 }
+
 
 void DrumServer::onPingTimer()
 {
@@ -349,25 +300,66 @@ void DrumServer::onPingTimer()
     }
 }
 
-void DrumServer::processClientMessage(QTcpSocket *client, const QByteArray &data)
-{
-    QString clientId = getClientId(client);
-    if (clientId.isEmpty())
-    {
-        qWarning() << "Impossible de traiter le message : client non identifié";
+void DrumServer::processClientMessage(QTcpSocket* socket, const QByteArray& message) {
+    QString clientId = m_clients.key(socket);
+
+    if (clientId.isEmpty()) {
+        qWarning() << "[SERVER] Socket non enregistré";
         return;
     }
 
-    // Validation basique du message
-    if (data.size() < 4)
-    {
-        qWarning() << "Message invalide du client" << clientId << ": trop court";
+    MessageType type;
+    QJsonObject content;
+    if (!Protocol::parseMessage(message, type, content)) {
+        qWarning() << "[SERVER] Message invalide reçu de" << clientId;
         return;
     }
 
-    qDebug() << "Traitement du message du client" << clientId;
-    emit messageReceived(data, clientId);
+    switch (type) {
+    case MessageType::ROOM_LIST_REQUEST: {
+        qDebug() << "[SERVER] Traitement ROOM_LIST_REQUEST pour" << clientId;
+
+        QList<Room*> publicRooms = m_roomManager->getPublicRooms();
+        QJsonArray roomArray;
+        for (Room* room : publicRooms) {
+            if (room) {
+                roomArray.append(room->toJson());
+            }
+        }
+
+        QByteArray response = Protocol::createRoomListResponseMessage(roomArray);
+
+        // UTILISER sendMessageToClient au lieu de l'autre méthode
+        sendMessageToClient(clientId, response);
+        break;
+    }
+
+    case MessageType::CREATE_ROOM: {
+        QString name = content["name"].toString();
+        QString password = content["password"].toString();
+        int maxUsers = content["maxUsers"].toInt(4);
+        QString hostName = "Host";
+
+        QString roomId = m_roomManager->createRoom(name, clientId, hostName, password);
+
+        // Diffusion à tous les clients
+        QList<Room*> publicRooms = m_roomManager->getPublicRooms();
+        QJsonArray roomArray;
+        for (Room* room : publicRooms) {
+            roomArray.append(room->toJson());
+        }
+        QByteArray broadcastMsg = Protocol::createRoomListResponseMessage(roomArray);
+
+        // UTILISER broadcastMessage au lieu de l'autre méthode
+        broadcastMessage(broadcastMsg);
+        break;
+    }
+
+    default:
+        qWarning() << "[SERVER] Type de message non géré:" << static_cast<int>(type);
+    }
 }
+
 
 QString DrumServer::getClientId(QTcpSocket *socket) const
 {

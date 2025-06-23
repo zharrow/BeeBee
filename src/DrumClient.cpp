@@ -196,10 +196,8 @@ void DrumClient::onPingTimer()
     }
 }
 
-void DrumClient::processMessage(const QByteArray &data)
-{
-    if (data.size() < 4)
-    {
+void DrumClient::processMessage(const QByteArray &data) {
+    if (data.size() < 4) {
         qWarning() << "[CLIENT] Message trop court reçu";
         return;
     }
@@ -216,17 +214,35 @@ void DrumClient::processMessage(const QByteArray &data)
 
     switch (type) {
     case MessageType::ROOM_LIST_RESPONSE: {
-        QJsonArray roomsArray = content["rooms"].toArray();
-        qDebug() << "[CLIENT] Nombre de salles reçues:" << roomsArray.size();
+        qDebug() << "[CLIENT] === DIAGNOSTIC ROOM_LIST_RESPONSE ===";
+        qDebug() << "[CLIENT] Contenu JSON complet reçu:" << QJsonDocument(content).toJson(QJsonDocument::Compact);
+        qDebug() << "[CLIENT] Clés disponibles dans content:" << content.keys();
+        qDebug() << "[CLIENT] Contient 'rooms':" << content.contains("rooms");
 
-        // Afficher le contenu pour debug
-        for (int i = 0; i < roomsArray.size(); ++i) {
-            QJsonObject room = roomsArray[i].toObject();
-            qDebug() << "[CLIENT] Salle" << i << ":" << room["name"].toString()
-                     << "(" << room["currentUsers"].toInt() << "/" << room["maxUsers"].toInt() << ")";
+        if (content.contains("rooms")) {
+            QJsonValue roomsValue = content["rooms"];
+            qDebug() << "[CLIENT] Type de 'rooms':" << (roomsValue.isArray() ? "Array" : "Autre");
+
+            if (roomsValue.isArray()) {
+                QJsonArray roomsArray = roomsValue.toArray();
+                qDebug() << "[CLIENT] Nombre de salles dans le JSON:" << roomsArray.size();
+
+                // Afficher chaque salle
+                for (int i = 0; i < roomsArray.size(); ++i) {
+                    QJsonObject room = roomsArray[i].toObject();
+                    qDebug() << "[CLIENT] Salle" << i << ":" << room["name"].toString()
+                             << "ID:" << room["id"].toString();
+                }
+
+                emit roomListReceived(roomsArray);
+            } else {
+                qWarning() << "[CLIENT] 'rooms' n'est pas un array";
+            }
+        } else {
+            qWarning() << "[CLIENT] Pas de clé 'rooms' dans le JSON";
         }
 
-        emit roomListReceived(roomsArray);
+        qDebug() << "[CLIENT] === FIN DIAGNOSTIC ===";
         break;
     }
     case MessageType::ROOM_INFO: {
@@ -238,9 +254,9 @@ void DrumClient::processMessage(const QByteArray &data)
         qWarning() << "[CLIENT] Type de message non géré:" << static_cast<int>(type);
     }
 
-    // Émettre le signal général APRÈS le traitement spécifique
     emit messageReceived(data);
 }
+
 
 void DrumClient::requestRoomList() {
     if (isConnected()) {

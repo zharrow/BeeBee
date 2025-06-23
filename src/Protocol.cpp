@@ -114,6 +114,10 @@ QByteArray Protocol::createRoomListRequestMessage() {
 QByteArray Protocol::createRoomListResponseMessage(const QJsonArray& rooms) {
     QJsonObject data;
     data["rooms"] = rooms;
+
+    qDebug() << "[PROTOCOL] Création ROOM_LIST_RESPONSE avec" << rooms.size() << "salles";
+    qDebug() << "[PROTOCOL] Contenu JSON:" << QJsonDocument(data).toJson(QJsonDocument::Compact);
+
     return createMessage(MessageType::ROOM_LIST_RESPONSE, data);
 }
 
