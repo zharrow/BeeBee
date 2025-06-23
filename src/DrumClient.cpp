@@ -38,7 +38,7 @@ bool DrumClient::connectToServer(const QString &host, quint16 port)
     qDebug() << "Tentative de connexion à" << host << ":" << port;
 
     m_socket->connectToHost(host, port);
-
+    
     // Attendre la connexion (non-bloquant grâce aux signaux)
     return true;
 }

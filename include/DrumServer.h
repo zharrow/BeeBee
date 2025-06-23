@@ -52,7 +52,8 @@ private:
 
     QTcpServer *m_server;
     QMap<QString, QTcpSocket *> m_clients;
-    QMap<QTcpSocket *, QByteArray> m_clientBuffers;
+    QMap<QTcpSocket*, QByteArray> m_clientBuffers;
+
     QTimer *m_pingTimer;
 
     RoomManager *m_roomManager = nullptr;
