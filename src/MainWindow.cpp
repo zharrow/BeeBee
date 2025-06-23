@@ -12,6 +12,7 @@
 #include <QPixmap>
 #include <QScreen>
 #include <QApplication>
+#include <QPainter>
 
 MainWindow::MainWindow(QWidget* parent)
     : QMainWindow(parent)
@@ -113,17 +114,71 @@ QWidget* MainWindow::createHeaderWidget() {
     // Logo
     QLabel* logoLabel = new QLabel(this);
     logoLabel->setObjectName("logoLabel");
-    QPixmap logo(":/icons/logo.png");
-    if (!logo.isNull()) {
-        logoLabel->setPixmap(logo.scaled(60, 60, Qt::KeepAspectRatio, Qt::SmoothTransformation));
-    } else {
-        // Logo temporaire si fichier non trouvé
-        logoLabel->setText("🥁");
-        logoLabel->setStyleSheet("font-size: 40px;");
+
+    // Essayer de charger le logo depuis plusieurs emplacements
+    QStringList logoPaths = {
+        ":/icons/logo.png",                               // Ressource Qt
+        "/../icons/logo.png",                                 // Relatif au répertoire de travail
+        QCoreApplication::applicationDirPath() + "/icons/logo.png",
+        QCoreApplication::applicationDirPath() + "/../icons/logo.png",
+        "assets/logo.png",
+        QCoreApplication::applicationDirPath() + "/assets/logo.png"
+    };
+
+    bool logoLoaded = false;
+    for (const QString& path : logoPaths) {
+        QPixmap logo(path);
+        if (!logo.isNull()) {
+            logoLabel->setPixmap(logo.scaled(60, 60, Qt::KeepAspectRatio, Qt::SmoothTransformation));
+            logoLoaded = true;
+            qDebug() << "Logo chargé depuis:" << path;
+            break;
+        }
+    }
+
+    if (!logoLoaded) {
+        // Créer un logo temporaire avec du texte stylisé
+        logoLabel->setText("🎵");
+        logoLabel->setStyleSheet(R"(
+        font-size: 48px;
+        background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+            stop:0 #3b82f6, stop:1 #8b5cf6);
+        -webkit-background-clip: text;
+        color: transparent;
+        font-weight: bold;
+    )");
+        logoLabel->setAlignment(Qt::AlignCenter);
+        logoLabel->setFixedSize(60, 60);
+    }
+
+    // Ou utiliser une icône générée programmatiquement
+    if (!logoLoaded) {
+        // Créer un pixmap avec un cercle coloré
+        QPixmap pixmap(60, 60);
+        pixmap.fill(Qt::transparent);
+
+        QPainter painter(&pixmap);
+        painter.setRenderHint(QPainter::Antialiasing);
+
+        // Dégradé
+        QLinearGradient gradient(0, 0, 60, 60);
+        gradient.setColorAt(0, QColor(59, 130, 246));
+        gradient.setColorAt(1, QColor(139, 92, 246));
+
+        painter.setBrush(gradient);
+        painter.setPen(Qt::NoPen);
+        painter.drawEllipse(5, 5, 50, 50);
+
+        // Texte au centre
+        painter.setPen(Qt::white);
+        painter.setFont(QFont("Arial", 24, QFont::Bold));
+        painter.drawText(pixmap.rect(), Qt::AlignCenter, "B");
+
+        logoLabel->setPixmap(pixmap);
     }
 
     // Titre
-    QLabel* titleLabel = new QLabel("BeeBee - Collaborative Drum Machine", this);
+    QLabel* titleLabel = new QLabel("BeeBee", this);
     titleLabel->setObjectName("titleLabel");
 
     // Statut de connexion
