@@ -38,6 +38,9 @@ private slots:
     void onStopClicked();
     void onTempoChanged(int bpm);
     void onVolumeChanged(int volume);
+    void onAddColumnClicked();
+    void onRemoveColumnClicked();
+    void onStepCountChanged(int newCount);
 
     // Grille
     void onGridCellClicked(int row, int col, bool active);
@@ -130,4 +133,9 @@ private:
     QString m_currentUserName;
     QString m_currentRoomId;
     bool m_inGameMode;
+
+    // Nouveaux widgets pour les contrôles de colonnes
+    QPushButton* m_addColumnBtn;
+    QPushButton* m_removeColumnBtn;
+    QLabel* m_stepCountLabel;
 };
