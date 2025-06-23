@@ -16,6 +16,7 @@ enum class MessageType {
     LEAVE_ROOM,
     ROOM_LIST_REQUEST,
     ROOM_LIST_RESPONSE,
+    ROOM_INFO_REQUEST,
     ROOM_INFO,
     USER_JOINED,
     USER_LEFT,
@@ -66,6 +67,7 @@ class Protocol {
 public:
     static QByteArray createMessage(MessageType type, const QJsonObject& data);
     static bool parseMessage(const QByteArray& data, MessageType& type, QJsonObject& content);
+    static QByteArray createRoomInfoRequestMessage(const QJsonObject& data);
 
     // Messages de rooms
     static QByteArray createCreateRoomMessage(const QString& name, const QString& password, int maxUsers);

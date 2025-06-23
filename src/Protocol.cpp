@@ -72,6 +72,11 @@ QByteArray Protocol::createPlayStateMessage(bool playing) {
     return createMessage(MessageType::PLAY_STATE, data);
 }
 
+QByteArray Protocol::createRoomInfoRequestMessage(const QJsonObject& data) {
+    return createMessage(MessageType::ROOM_INFO_REQUEST, data);
+}
+
+
 QByteArray Protocol::createSyncRequestMessage() {
     return createMessage(MessageType::SYNC_REQUEST, QJsonObject());
 }

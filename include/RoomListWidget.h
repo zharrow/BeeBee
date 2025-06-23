@@ -18,7 +18,7 @@ class RoomListWidget : public QWidget {
 public:
     explicit RoomListWidget(QWidget* parent = nullptr);
 
-    void updateRoomList(const QList<Room*>& rooms);
+    void updateRoomList(const QJsonArray& roomsArray);
     void setCurrentUser(const QString& userId, const QString& userName);
 
 signals:

@@ -1,10 +1,10 @@
 #include "RoomListWidget.h"
-#include <QVBoxLayout>
-#include <QHBoxLayout>
+#include <QJsonArray>
+#include <QJsonObject>
+#include <QJsonValue>
+#include <QListWidgetItem>
+#include <QDebug>
 #include <QMessageBox>
-#include <QHeaderView>
-#include <QListWidget>
-#include <QInputDialog>
 
 RoomListWidget::RoomListWidget(QWidget* parent)
     : QWidget(parent)
@@ -50,40 +50,44 @@ void RoomListWidget::setupUI() {
     connect(m_refreshBtn, &QPushButton::clicked, this, &RoomListWidget::onRefreshClicked);
 }
 
-void RoomListWidget::updateRoomList(const QList<Room*>& rooms) {
+void RoomListWidget::updateRoomList(const QJsonArray& roomsArray) {
+    qDebug() << "[ROOMLIST] Mise à jour avec" << roomsArray.size() << "salles";
+
     m_roomList->clear();
 
-    for (Room* room : rooms) {
-        QListWidgetItem* item = new QListWidgetItem();
+    for (const QJsonValue& value : roomsArray) {
+        if (!value.isObject()) continue;
 
-        QString displayText = QString("%1 (%2/%3)")
-                                  .arg(room->getName())
-                                  .arg(room->getUserCount())
-                                  .arg(room->getMaxUsers());
+        QJsonObject obj = value.toObject();
+        QString roomId = obj["id"].toString();
+        QString roomName = obj["name"].toString();
+        int maxUsers = obj["maxUsers"].toInt(4);
+        int currentUsers = obj["currentUsers"].toInt(0);
+        bool hasPassword = obj["hasPassword"].toBool(false);
 
-        if (room->hasPassword()) {
-            displayText += " 🔒";
-        }
+        QString displayText = QString("%1 (%2/%3)").arg(roomName).arg(currentUsers).arg(maxUsers);
+        if (hasPassword) displayText += " 🔒";
 
-        item->setText(displayText);
-        item->setData(Qt::UserRole, room->getId());
+        QListWidgetItem* item = new QListWidgetItem(displayText);
+        item->setData(Qt::UserRole, roomId);
 
-        // Couleur selon l'état
-        if (room->isFull()) {
+        if (currentUsers >= maxUsers) {
             item->setForeground(QColor(150, 150, 150));
             item->setToolTip("Salon complet");
         } else {
-            item->setForeground(QColor(0, 0, 0));
-            item->setToolTip(QString("Hôte: %1\nCréé: %2")
-                                 .arg(room->getUser(room->getHostId()).name)
-                                 .arg(room->getCreatedTime().toString("hh:mm:ss")));
+            item->setForeground(Qt::black);
+            QString hostId = obj["hostId"].toString();
+            QString createdTime = obj["createdTime"].toString();
+            item->setToolTip(QString("Hôte: %1\nCréé: %2").arg(hostId, createdTime));
         }
 
         m_roomList->addItem(item);
     }
 
+    qDebug() << "[ROOMLIST] Mise à jour terminée, total items:" << m_roomList->count();
     updateJoinButton();
 }
+
 
 void RoomListWidget::setCurrentUser(const QString& userId, const QString& userName) {
     m_currentUserId = userId;

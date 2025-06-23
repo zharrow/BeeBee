@@ -2,7 +2,12 @@
 #include "RoomManager.h"
 #include "RoomListWidget.h"
 #include "UserListWidget.h"
-#include "DrumServer.h"
+
+#include <QTimer>
+#include <QJsonArray>
+#include <QJsonObject>
+#include "Protocol.h"
+#include "DrumClient.h"
 
 #include <QMenuBar>
 #include <QToolBar>
@@ -11,7 +16,16 @@
 #include <QUuid>
 
 MainWindow::MainWindow(QWidget *parent)
-    : QMainWindow(parent), m_drumGrid(new DrumGrid(this)), m_audioEngine(new AudioEngine(this)), m_networkManager(new NetworkManager(this)), m_roomManager(new RoomManager(this)), m_roomListWidget(new RoomListWidget(this)), m_userListWidget(new UserListWidget(this)), m_stackedWidget(new QStackedWidget(this)), m_isPlaying(false), m_inGameMode(false)
+    : QMainWindow(parent)
+    , m_drumGrid(new DrumGrid(this))
+    , m_audioEngine(new AudioEngine(this))
+    , m_networkManager(new NetworkManager(this))
+    , m_roomManager(new RoomManager(this))
+    , m_roomListWidget(new RoomListWidget(this))
+    , m_userListWidget(new UserListWidget(this))
+    , m_stackedWidget(new QStackedWidget(this))
+    , m_isPlaying(false)
+    , m_inGameMode(false)
 {
     // Générer un ID utilisateur unique
     m_currentUserId = QUuid::createUuid().toString();
@@ -22,26 +36,17 @@ MainWindow::MainWindow(QWidget *parent)
     setupStatusBar();
 
     // Connexions audio
-    connect(m_drumGrid, &DrumGrid::stepTriggered, this, [this](int step, const QList<int> &instruments)
-            { m_audioEngine->playMultipleInstruments(instruments); });
+    connect(m_drumGrid, &DrumGrid::stepTriggered, this, [this](int step, const QList<int> &instruments) {
+        m_audioEngine->playMultipleInstruments(instruments);
+    });
     connect(m_drumGrid, &DrumGrid::cellClicked, this, &MainWindow::onGridCellClicked);
     connect(m_drumGrid, &DrumGrid::stepTriggered, this, &MainWindow::onStepTriggered);
 
     // Connexions réseau
-
-    if (m_networkManager->startServer())
-    {
-        m_networkManager->getDrumServer()->setRoomManager(m_roomManager);
-    }
-
     connect(m_networkManager, &NetworkManager::messageReceived, this, &MainWindow::onMessageReceived);
     connect(m_networkManager, &NetworkManager::clientConnected, this, &MainWindow::onClientConnected);
     connect(m_networkManager, &NetworkManager::clientDisconnected, this, &MainWindow::onClientDisconnected);
-    connect(m_networkManager, &NetworkManager::connectionEstablished, this, [=]()
-            {
-        QByteArray request = Protocol::createRoomListRequestMessage();
-        m_networkManager->sendMessage(request); });
-
+    connect(m_networkManager, &NetworkManager::connectionEstablished, this, &MainWindow::onConnectionEstablished);
     connect(m_networkManager, &NetworkManager::connectionLost, this, &MainWindow::onConnectionLost);
     connect(m_networkManager, &NetworkManager::errorOccurred, this, &MainWindow::onNetworkError);
 
@@ -63,6 +68,7 @@ MainWindow::MainWindow(QWidget *parent)
     updateNetworkStatus();
 }
 
+
 MainWindow::~MainWindow()
 {
     // Nettoyer les connexions
@@ -75,6 +81,31 @@ MainWindow::~MainWindow()
         m_networkManager->disconnectFromServer();
     }
 }
+
+
+void MainWindow::onConnectionEstablished() {
+    qDebug() << "[MAINWINDOW] Connexion établie";
+    updateNetworkStatus();
+
+    // Si on est client, connecter le signal roomListReceived
+    if (m_networkManager->isClientConnected() && m_networkManager->getClient()) {
+        // Connecter le signal pour recevoir la liste des salles
+        connect(m_networkManager->getClient(), &DrumClient::roomListReceived,
+                this, [this](const QJsonArray& roomsArray) {
+                    qDebug() << "[MAINWINDOW] Réception de" << roomsArray.size() << "salles";
+                    m_roomListWidget->updateRoomList(roomsArray);
+                });
+
+        // Demander la liste des salles après un court délai
+        QTimer::singleShot(200, this, [this]() {
+            if (m_networkManager->getClient()) {
+                m_networkManager->getClient()->requestRoomList();
+            }
+        });
+    }
+}
+
+
 
 void MainWindow::setupUI()
 {
@@ -256,29 +287,22 @@ void MainWindow::setupStatusBar()
     statusBar()->showMessage("Bienvenue dans DrumBox Multiplayer !");
 }
 
-void MainWindow::switchToLobbyMode()
-{
+void MainWindow::switchToLobbyMode() {
     m_inGameMode = false;
     m_stackedWidget->setCurrentIndex(0);
     setWindowTitle("DrumBox Multiplayer - Lobby");
 
     // Arrêter la lecture si en cours
-    if (m_isPlaying)
-    {
+    if (m_isPlaying) {
         onStopClicked();
     }
 
-    // Mettre à jour la liste des salons si connecté
-    if (m_networkManager->isClientConnected())
-    {
+    // Mettre à jour la liste des salons
+    QTimer::singleShot(100, this, [this]() {
         onRefreshRoomsRequested();
-    }
-    else if (m_networkManager->isServerRunning())
-    {
-        // En tant que serveur, afficher nos propres salons
-        m_roomListWidget->updateRoomList(m_roomManager->getAllRooms());
-    }
+    });
 }
+
 
 void MainWindow::switchToGameMode()
 {
@@ -535,24 +559,27 @@ void MainWindow::onLeaveRoomRequested()
     statusBar()->showMessage("Salon quitté");
 }
 
-void MainWindow::onRefreshRoomsRequested()
-{
-    if (m_networkManager->isServerRunning())
-    {
+void MainWindow::onRefreshRoomsRequested() {
+    qDebug() << "[MAINWINDOW] Demande d'actualisation des salles";
+
+    if (m_networkManager->isServerRunning()) {
         // Afficher les salons locaux
-        m_roomListWidget->updateRoomList(m_roomManager->getPublicRooms());
-    }
-    else if (m_networkManager->isClientConnected())
-    {
+        QJsonArray roomsArray;
+        for (Room* room : m_roomManager->getPublicRooms()) {
+            roomsArray.append(room->toJson());
+        }
+        m_roomListWidget->updateRoomList(roomsArray);
+    } else if (m_networkManager->isClientConnected() && m_networkManager->getClient()) {
         // Demander la liste au serveur
-        QByteArray message = Protocol::createRoomListRequestMessage();
-        m_networkManager->sendMessage(message);
-    }
-    else
-    {
-        m_roomListWidget->updateRoomList(QList<Room *>());
+        m_networkManager->getClient()->requestRoomList();
+    } else {
+        qWarning() << "[MAINWINDOW] Aucune connexion active pour actualiser";
+        // Vider la liste
+        QJsonArray emptyArray;
+        m_roomListWidget->updateRoomList(emptyArray);
     }
 }
+
 
 void MainWindow::onKickUserRequested(const QString &userId)
 {
@@ -611,17 +638,6 @@ void MainWindow::onClientDisconnected(const QString &clientId)
     updateRoomDisplay();
 }
 
-void MainWindow::onConnectionEstablished()
-{
-    statusBar()->showMessage("Connexion établie");
-    updateNetworkStatus();
-
-    // Demander la liste des salons si on est client
-    if (!m_networkManager->isServer())
-    {
-        onRefreshRoomsRequested();
-    }
-}
 
 void MainWindow::onConnectionLost()
 {
@@ -807,22 +823,11 @@ void MainWindow::handleNetworkMessage(MessageType type, const QJsonObject &data)
 
     case MessageType::ROOM_LIST_RESPONSE:
     {
-        QJsonArray roomsArray = data["rooms"].toArray();
-        QList<Room *> rooms;
-        for (const auto &roomValue : roomsArray)
-        {
-            Room *room = Room::fromJson(roomValue.toObject(), this);
-            rooms.append(room);
-        }
-        m_roomListWidget->updateRoomList(rooms);
-
-        // Nettoyer les rooms temporaires
-        for (Room *room : rooms)
-        {
-            room->deleteLater();
-        }
+        // Cette partie est maintenant gérée directement par le signal roomListReceived du DrumClient
+        qDebug() << "[MAINWINDOW] ROOM_LIST_RESPONSE reçu via handleNetworkMessage (redondant)";
         break;
     }
+
 
     case MessageType::ROOM_INFO:
     {

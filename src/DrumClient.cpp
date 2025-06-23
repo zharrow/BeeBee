@@ -76,7 +76,7 @@ void DrumClient::sendMessage(const QByteArray &message)
     if (!isConnected())
     {
         qWarning() << "Tentative d'envoi de message sans connexion";
-        
+
         return;
     }
 
@@ -200,9 +200,65 @@ void DrumClient::processMessage(const QByteArray &data)
 {
     if (data.size() < 4)
     {
-        qWarning() << "Message trop court reçu";
+        qWarning() << "[CLIENT] Message trop court reçu";
         return;
     }
 
+    MessageType type;
+    QJsonObject content;
+
+    if (!Protocol::parseMessage(data, type, content)) {
+        qWarning() << "[CLIENT] Impossible de parser le message";
+        return;
+    }
+
+    qDebug() << "[CLIENT] Message reçu type:" << Protocol::messageTypeToString(type);
+
+    switch (type) {
+    case MessageType::ROOM_LIST_RESPONSE: {
+        QJsonArray roomsArray = content["rooms"].toArray();
+        qDebug() << "[CLIENT] Nombre de salles reçues:" << roomsArray.size();
+
+        // Afficher le contenu pour debug
+        for (int i = 0; i < roomsArray.size(); ++i) {
+            QJsonObject room = roomsArray[i].toObject();
+            qDebug() << "[CLIENT] Salle" << i << ":" << room["name"].toString()
+                     << "(" << room["currentUsers"].toInt() << "/" << room["maxUsers"].toInt() << ")";
+        }
+
+        emit roomListReceived(roomsArray);
+        break;
+    }
+    case MessageType::ROOM_INFO: {
+        qDebug() << "[CLIENT] Info de salle reçue";
+        emit roomStateReceived(content);
+        break;
+    }
+    default:
+        qWarning() << "[CLIENT] Type de message non géré:" << static_cast<int>(type);
+    }
+
+    // Émettre le signal général APRÈS le traitement spécifique
     emit messageReceived(data);
 }
+
+void DrumClient::requestRoomList() {
+    if (isConnected()) {
+        qDebug() << "[CLIENT] Demande de liste des salles";
+        QByteArray message = Protocol::createRoomListRequestMessage();
+        sendMessage(message);
+    } else {
+        qWarning() << "[CLIENT] Pas de connexion pour demander la liste des salles";
+    }
+}
+
+void DrumClient::requestRoomState(const QString& roomId) {
+    if (isConnected()) {
+        qDebug() << "[CLIENT] Demande d'état de salle:" << roomId;
+        QJsonObject data;
+        data["roomId"] = roomId;
+        QByteArray message = Protocol::createRoomInfoRequestMessage(data);
+        sendMessage(message);
+    }
+}
+

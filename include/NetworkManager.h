@@ -15,6 +15,8 @@ class NetworkManager : public QObject
 
 public:
     DrumServer *getDrumServer() const { return m_server; }
+    DrumClient* getClient() const { return m_client; }
+    DrumServer* getServer() const { return m_server; }
 
     explicit NetworkManager(QObject *parent = nullptr);
     ~NetworkManager();
