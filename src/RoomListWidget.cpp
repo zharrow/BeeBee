@@ -41,7 +41,6 @@ QPushButton* RoomListWidget::createModernButton(const QString& text, const QStri
     return button;
 }
 
-
 void RoomListWidget::setupUI() {
     QVBoxLayout* mainLayout = new QVBoxLayout(this);
     mainLayout->setContentsMargins(20, 20, 20, 20);
@@ -117,6 +116,95 @@ void RoomListWidget::setupUI() {
     connect(m_createRoomBtn, &QPushButton::clicked, this, &RoomListWidget::onCreateRoomClicked);
     connect(m_joinRoomBtn, &QPushButton::clicked, this, &RoomListWidget::onJoinRoomClicked);
     connect(m_refreshBtn, &QPushButton::clicked, this, &RoomListWidget::onRefreshClicked);
+}
+
+void RoomListWidget::updateRoomList(const QList<Room*>& rooms) {
+    m_roomList->clear();
+
+    for (Room* room : rooms) {
+        QListWidgetItem* item = new QListWidgetItem();
+
+        QString displayText = QString("%1 (%2/%3)")
+                                  .arg(room->getName())
+                                  .arg(room->getUserCount())
+                                  .arg(room->getMaxUsers());
+
+        if (room->hasPassword()) {
+            displayText += " 🔒";
+        }
+
+        item->setText(displayText);
+        item->setData(Qt::UserRole, room->getId());
+
+        // Couleur selon l'état
+        if (room->isFull()) {
+            item->setForeground(QColor(150, 150, 150));
+            item->setToolTip("Salon complet");
+        } else {
+            item->setForeground(QColor(226, 232, 240)); // Couleur claire pour le thème sombre
+            item->setToolTip(QString("Hôte: %1\nCréé: %2")
+                                 .arg(room->getUser(room->getHostId()).name)
+                                 .arg(room->getCreatedTime().toString("hh:mm:ss")));
+        }
+
+        m_roomList->addItem(item);
+    }
+
+    updateJoinButton();
+}
+
+void RoomListWidget::setCurrentUser(const QString& userId, const QString& userName) {
+    m_currentUserId = userId;
+    m_currentUserName = userName;
+}
+
+void RoomListWidget::onCreateRoomClicked() {
+    CreateRoomDialog dialog(this);
+    if (dialog.exec() == QDialog::Accepted) {
+        emit createRoomRequested(dialog.getRoomName(), dialog.getPassword(), dialog.getMaxUsers());
+    }
+}
+
+void RoomListWidget::onJoinRoomClicked() {
+    QListWidgetItem* currentItem = m_roomList->currentItem();
+    if (!currentItem) return;
+
+    QString roomId = currentItem->data(Qt::UserRole).toString();
+
+    // Vérifier si le salon nécessite un mot de passe
+    QString roomText = currentItem->text();
+    bool hasPassword = roomText.contains("🔒");
+
+    if (hasPassword) {
+        JoinRoomDialog dialog(roomText, true, this);
+        if (dialog.exec() == QDialog::Accepted) {
+            emit joinRoomRequested(roomId, dialog.getPassword());
+        }
+    } else {
+        emit joinRoomRequested(roomId, QString());
+    }
+}
+
+void RoomListWidget::onRefreshClicked() {
+    emit refreshRequested();
+}
+
+void RoomListWidget::onRoomDoubleClicked() {
+    onJoinRoomClicked();
+}
+
+void RoomListWidget::updateJoinButton() {
+    QListWidgetItem* currentItem = m_roomList->currentItem();
+    m_joinRoomBtn->setEnabled(currentItem != nullptr);
+}
+
+// CreateRoomDialog implementation
+CreateRoomDialog::CreateRoomDialog(QWidget* parent)
+    : QDialog(parent)
+{
+    setWindowTitle("Créer un Salon");
+    setModal(true);
+    setupUI();
 }
 
 void CreateRoomDialog::setupUI() {
@@ -294,6 +382,30 @@ void CreateRoomDialog::setupUI() {
     m_nameEdit->setFocus();
 }
 
+QString CreateRoomDialog::getRoomName() const {
+    return m_nameEdit->text().trimmed();
+}
+
+QString CreateRoomDialog::getPassword() const {
+    return m_passwordCheckBox->isChecked() ? m_passwordEdit->text() : QString();
+}
+
+int CreateRoomDialog::getMaxUsers() const {
+    return m_maxUsersSpin->value();
+}
+
+// JoinRoomDialog implementation
+JoinRoomDialog::JoinRoomDialog(const QString& roomName, bool hasPassword, QWidget* parent)
+    : QDialog(parent)
+    , m_roomName(roomName)
+    , m_hasPassword(hasPassword)
+    , m_passwordEdit(nullptr)
+{
+    setWindowTitle("Rejoindre le Salon");
+    setModal(true);
+    setupUI();
+}
+
 void JoinRoomDialog::setupUI() {
     setStyleSheet(R"(
         QDialog {
@@ -428,4 +540,8 @@ void JoinRoomDialog::setupUI() {
     if (m_passwordEdit) {
         m_passwordEdit->setFocus();
     }
+}
+
+QString JoinRoomDialog::getPassword() const {
+    return m_passwordEdit ? m_passwordEdit->text() : QString();
 }
