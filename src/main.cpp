@@ -16,7 +16,7 @@ int main(int argc, char *argv[]) {
 
     // Métadonnées de l'application
     app.setApplicationName("BeeBee");
-    app.setApplicationDisplayName("BeeBee - Collab' Drum Machine");
+    // app.setApplicationDisplayName("BeeBee - Collab' Drum Machine");
     app.setApplicationVersion("1.0.0");
     app.setOrganizationName("BeTeam");
 
