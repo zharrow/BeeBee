@@ -41,6 +41,11 @@ DrumGrid::DrumGrid(QWidget* parent)
     setInstrumentNames(defaultNames);
 }
 
+void DrumGrid::applyGridUpdate(const GridCell& cell)
+{
+    setCellActive(cell.row, cell.col, cell.active, cell.userId);
+}
+
 void DrumGrid::setupGrid(int instruments, int steps) {
     m_instruments = instruments;
     m_steps = qBound(MIN_STEPS, steps, MAX_STEPS);

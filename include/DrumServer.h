@@ -4,6 +4,7 @@
 #include <QTcpSocket>
 #include <QMap>
 #include <QTimer>
+#include "MainWindow.h"
 #include "RoomManager.h"
 
 class DrumServer : public QObject
@@ -15,7 +16,7 @@ public:
     explicit DrumServer(QObject *parent = nullptr);
     ~DrumServer();
     void setRoomManager(RoomManager* roomManager);
-
+    void setHostWindow(MainWindow* window);
 
     bool startListening(quint16 port);
     void stopListening();
@@ -48,6 +49,7 @@ private slots:
     void onPingTimer();
 
 private:
+    MainWindow* m_hostWindow = nullptr;
     void processClientMessage(QTcpSocket *client, const QByteArray &data);
     QString getClientId(QTcpSocket *socket) const;
 

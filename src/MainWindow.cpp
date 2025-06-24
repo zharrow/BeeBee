@@ -67,7 +67,10 @@ MainWindow::MainWindow(QWidget *parent)
 
     // NE PAS démarrer le serveur automatiquement ici
     // Le serveur sera démarré quand l'utilisateur choisit "Héberger"
-
+    if (m_networkManager->getClient()) {
+        connect(m_networkManager->getClient(), &DrumClient::gridCellUpdated,
+                m_drumGrid, &DrumGrid::applyGridUpdate, Qt::UniqueConnection);
+    }
     // État initial
     switchToLobbyMode();
     updateNetworkStatus();
@@ -431,28 +434,17 @@ void MainWindow::onVolumeChanged(int volume)
 
 void MainWindow::onGridCellClicked(int row, int col, bool active)
 {
-    // Définir l'utilisateur pour cette cellule
-    m_drumGrid->setCellActive(row, col, active, m_currentUserId);
+    GridCell cell;
+    cell.row = row;
+    cell.col = col;
+    cell.active = active;
+    cell.userId = m_currentUserId;
 
-    // Synchronisation réseau
-    if (m_networkManager->isServerRunning() || m_networkManager->isClientConnected())
-    {
-        GridCell cell;
-        cell.row = row;
-        cell.col = col;
-        cell.active = active;
-        cell.userId = m_currentUserId;
-
-        QByteArray message = Protocol::createGridUpdateMessage(cell);
-        if (m_networkManager->isServer())
-        {
-            m_networkManager->broadcastMessage(message);
-        }
-        else
-        {
-            m_networkManager->sendMessage(message);
-        }
-    }
+    QByteArray message = Protocol::createGridUpdateMessage(cell);
+    if (m_networkManager->isServer())
+        m_networkManager->broadcastMessage(message);
+    else
+        m_networkManager->sendMessage(message);
 }
 
 void MainWindow::onStepTriggered(int step, const QList<int> &activeInstruments)
@@ -486,6 +478,11 @@ void MainWindow::onStartServerClicked()
     else
     {
         QMessageBox::warning(this, "Erreur", "Impossible de démarrer le serveur");
+    }
+    if (m_networkManager->getServer()) {
+        m_networkManager->getServer()->setRoomManager(m_roomManager);
+        m_networkManager->getServer()->setHostWindow(this); // AJOUT ICI
+        qDebug() << "[MAINWINDOW] RoomManager et host window partagés avec le serveur";
     }
     updateNetworkStatus();
 }

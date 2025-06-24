@@ -1,4 +1,5 @@
 #pragma once
+#include "Protocol.h"
 #include <QObject>
 #include <QTcpSocket>
 #include <QTimer>
@@ -22,6 +23,7 @@ public:
     void requestRoomState(const QString& roomId);
 
 signals:
+    void gridCellUpdated(const GridCell& cell);
     void connected();
     void disconnected();
     void messageReceived(const QByteArray& message);

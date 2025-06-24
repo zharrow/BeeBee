@@ -32,6 +32,7 @@ public:
     ~MainWindow();
 public slots:
     void startServer();
+    void onMessageReceived(const QByteArray& message);
 
 private slots:
     // Contrôles audio
@@ -59,7 +60,7 @@ private slots:
     void onStartServerClicked();
     void onConnectToServerClicked();
     void onDisconnectClicked();
-    void onMessageReceived(const QByteArray& message);
+
     void onClientConnected(const QString& clientId);
     void onClientDisconnected(const QString& clientId);
     void onConnectionEstablished();

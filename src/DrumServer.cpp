@@ -68,26 +68,19 @@ bool DrumServer::isListening() const
     return m_server->isListening();
 }
 
-void DrumServer::broadcastMessage(const QByteArray &message)
+void DrumServer::broadcastMessage(const QByteArray& message)
 {
-    int sentCount = 0;
-    for (auto *socket : m_clients)
-    {
-        if (socket->state() == QTcpSocket::ConnectedState)
-        {
-            qint64 written = socket->write(message);
-            if (written == message.size())
-            {
-                sentCount++;
-            }
-            else
-            {
-                qWarning() << "Erreur d'envoi de message au client" << getClientId(socket);
-            }
+    for (QTcpSocket* socket : m_clients) {
+        if (socket && socket->state() == QAbstractSocket::ConnectedState) {
+            socket->write(message);
         }
     }
-    qDebug() << "Message diffusé à" << sentCount << "clients";
+
+    if (m_hostWindow) {
+        m_hostWindow->onMessageReceived(message);
+    }
 }
+
 
 void DrumServer::sendMessageToClient(const QString &clientId, const QByteArray &message)
 {
@@ -310,6 +303,10 @@ void DrumServer::onPingTimer()
     {
         qDebug() << "Clients connectés actuels:" << getConnectedClients().size();
     }
+}
+
+void DrumServer::setHostWindow(MainWindow* window) {
+    m_hostWindow = window;
 }
 
 void DrumServer::setRoomManager(RoomManager *roomManager)

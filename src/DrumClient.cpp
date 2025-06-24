@@ -245,6 +245,13 @@ void DrumClient::processMessage(const QByteArray &data) {
         qDebug() << "[CLIENT] === FIN DIAGNOSTIC ===";
         break;
     }
+
+    case MessageType::GRID_UPDATE: {
+        GridCell cell = GridCell::fromJson(content);
+        emit gridCellUpdated(cell);
+        break;
+    }
+
     case MessageType::ROOM_INFO: {
         emit roomStateReceived(content);
         break;
