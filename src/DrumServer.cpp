@@ -360,6 +360,16 @@ void DrumServer::processClientMessage(QTcpSocket *socket, const QByteArray &mess
         break;
     }
 
+    case MessageType::GRID_UPDATE:
+    {
+        GridCell cell = GridCell::fromJson(content);
+
+        QByteArray broadcastMsg = Protocol::createGridUpdateMessage(cell);
+        broadcastMessage(broadcastMsg);
+        break;
+    }
+
+
     case MessageType::CREATE_ROOM:
     {
         QString name = content["name"].toString();
