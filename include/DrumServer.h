@@ -62,4 +62,6 @@ private:
     RoomManager* m_roomManager = nullptr;
     QMap<QTcpSocket*, QString> m_socketToId;
 
+    QMap<QString, QString> m_clientIdToUserId;
+
 };

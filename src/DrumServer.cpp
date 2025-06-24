@@ -393,6 +393,7 @@ void DrumServer::processClientMessage(QTcpSocket *socket, const QByteArray &mess
         if (ok)
         {
             Room *room = m_roomManager->getRoom(roomId);
+            m_clientIdToUserId[clientId] = userId;
             QByteArray response = Protocol::createRoomInfoMessage(room->toJson());
             sendMessageToClient(clientId, response);
         }
@@ -406,11 +407,11 @@ void DrumServer::processClientMessage(QTcpSocket *socket, const QByteArray &mess
     case MessageType::LEAVE_ROOM:
     {
         QString roomId = content["roomId"].toString();
+        QString userId = m_clientIdToUserId.value(clientId);
 
         qDebug() << "[SERVER] Traitement LEAVE_ROOM pour" << clientId << "de la salle" << roomId;
-
         // Retirer l'utilisateur de la salle
-        m_roomManager->leaveRoom(roomId, clientId);
+        m_roomManager->leaveRoom(roomId, userId);
 
         // Diffuser la liste mise à jour des salons publics
         QList<Room *> publicRooms = m_roomManager->getPublicRooms();
@@ -419,7 +420,7 @@ void DrumServer::processClientMessage(QTcpSocket *socket, const QByteArray &mess
         {
             roomArray.append(room->toJson());
         }
-
+        
         QByteArray broadcastMsg = Protocol::createRoomListResponseMessage(roomArray);
         broadcastMessage(broadcastMsg);
 
