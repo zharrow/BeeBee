@@ -14,6 +14,9 @@
 #include <QMenuBar>
 #include <QToolBar>
 #include <QGridLayout>
+#include <QDesktopServices>
+#include <QCoreApplication>
+#include <QUrl>
 #include "DrumGrid.h"
 #include "AudioEngine.h"
 #include "NetworkManager.h"
@@ -41,6 +44,7 @@ private slots:
     void onAddColumnClicked();
     void onRemoveColumnClicked();
     void onStepCountChanged(int newCount);
+    void reloadAudioSamples();
 
     // Grille
     void onGridCellClicked(int row, int col, bool active);
@@ -134,8 +138,9 @@ private:
     QString m_currentRoomId;
     bool m_inGameMode;
 
-    // Nouveaux widgets pour les contrôles de colonnes
+    // Nouveaux widgets pour les contrôles de colonnes et instruments
     QPushButton* m_addColumnBtn;
     QPushButton* m_removeColumnBtn;
     QLabel* m_stepCountLabel;
+    QLabel* m_instrumentCountLabel;
 };

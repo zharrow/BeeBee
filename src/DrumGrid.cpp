@@ -42,10 +42,11 @@ DrumGrid::DrumGrid(QWidget* parent)
 }
 
 void DrumGrid::setupGrid(int instruments, int steps) {
-    m_instruments = instruments;
+    m_instruments = qBound(MIN_INSTRUMENTS, instruments, MAX_INSTRUMENTS);
     m_steps = qBound(MIN_STEPS, steps, MAX_STEPS);
     m_cellStates.clear();
 
+    m_table->setRowCount(m_instruments);
     m_table->setRowCount(instruments);
     m_table->setColumnCount(steps);
 
@@ -93,7 +94,7 @@ void DrumGrid::setupGrid(int instruments, int steps) {
     }
 
     // Initialisation des cellules
-    for (int row = 0; row < instruments; ++row) {
+    for (int row = 0; row < m_instruments; ++row) {
         for (int col = 0; col < m_steps; ++col) {
             QTableWidgetItem* item = new QTableWidgetItem("");
             item->setFlags(Qt::ItemIsEnabled);
@@ -101,6 +102,56 @@ void DrumGrid::setupGrid(int instruments, int steps) {
             m_table->setItem(row, col, item);
             updateCellAppearance(row, col);
         }
+    }
+
+    updateTableSize();
+    emit instrumentCountChanged(m_instruments);
+}
+
+void DrumGrid::setInstrumentCount(int instrumentCount) {
+    int newCount = qBound(MIN_INSTRUMENTS, instrumentCount, MAX_INSTRUMENTS);
+    if (newCount == m_instruments) return;
+
+    m_instruments = newCount;
+    resizeGridForInstruments();
+    emit instrumentCountChanged(m_instruments);
+}
+
+void DrumGrid::resizeGridForInstruments() {
+    // Sauvegarder l'état actuel des cellules pour les instruments existants
+    QMap<QPair<int,int>, QPair<bool,QString>> oldStates = m_cellStates;
+
+    // Redimensionner la table
+    m_table->setRowCount(m_instruments);
+
+    // Nettoyer les états des cellules pour les lignes supprimées
+    if (m_instruments < m_table->rowCount()) {
+        for (auto it = m_cellStates.begin(); it != m_cellStates.end();) {
+            if (it.key().first >= m_instruments) {
+                it = m_cellStates.erase(it);
+            } else {
+                ++it;
+            }
+        }
+    }
+
+    // Initialiser les nouvelles cellules
+    for (int row = 0; row < m_instruments; ++row) {
+        for (int col = 0; col < m_steps; ++col) {
+            if (!m_table->item(row, col)) {
+                QTableWidgetItem* item = new QTableWidgetItem("");
+                item->setFlags(Qt::ItemIsEnabled);
+                item->setTextAlignment(Qt::AlignCenter);
+                m_table->setItem(row, col, item);
+            }
+            updateCellAppearance(row, col);
+        }
+    }
+
+    // Mettre à jour les headers verticaux avec les noms d'instruments
+    for (int i = 0; i < m_instruments; ++i) {
+        QString name = (i < m_instrumentNames.size()) ? m_instrumentNames[i] : QString("Instrument %1").arg(i + 1);
+        m_table->setVerticalHeaderItem(i, new QTableWidgetItem(name));
     }
 
     updateTableSize();
@@ -223,9 +274,19 @@ void DrumGrid::highlightCurrentStep() {
 void DrumGrid::setInstrumentNames(const QStringList& names) {
     m_instrumentNames = names;
 
+    // Ajuster le nombre d'instruments si nécessaire
+    if (names.size() != m_instruments) {
+        setInstrumentCount(names.size());
+    }
+
     // Mise à jour des headers verticaux
     for (int i = 0; i < qMin(names.size(), m_instruments); ++i) {
         m_table->setVerticalHeaderItem(i, new QTableWidgetItem(names[i]));
+    }
+
+    // Pour les instruments sans nom, utiliser un nom par défaut
+    for (int i = names.size(); i < m_instruments; ++i) {
+        m_table->setVerticalHeaderItem(i, new QTableWidgetItem(QString("Instrument %1").arg(i + 1)));
     }
 }
 
@@ -290,7 +351,7 @@ bool DrumGrid::isCellActive(int row, int col) const {
 }
 
 void DrumGrid::setCellActive(int row, int col, bool active, const QString& userId) {
-    if (col >= m_steps) return; // Protection contre les indices invalides
+    if (col >= m_steps || row >= m_instruments) return; // Protection contre les indices invalides
 
     QPair<int,int> key(row, col);
     m_cellStates[key] = {active, userId};
@@ -328,6 +389,7 @@ QJsonObject DrumGrid::getGridState() const {
     state["playing"] = m_playing;
     state["currentStep"] = m_currentStep;
     state["stepCount"] = m_steps;
+    state["instrumentCount"] = m_instruments;
 
     return state;
 }
@@ -339,6 +401,11 @@ void DrumGrid::setGridState(const QJsonObject& state) {
     // Charger le nombre de steps si présent
     if (state.contains("stepCount")) {
         setStepCount(state["stepCount"].toInt());
+    }
+
+    // Charger le nombre d'instruments si présent
+    if (state.contains("instrumentCount")) {
+        setInstrumentCount(state["instrumentCount"].toInt());
     }
 
     // Chargement des cellules
