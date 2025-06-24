@@ -603,19 +603,25 @@ void MainWindow::onLeaveRoomRequested()
 
     if (m_networkManager->isServerRunning())
     {
-        // Quitter le salon local
+        // Quitter un salon local (serveur hébergé en local)
         m_roomManager->leaveRoom(m_currentRoomId, m_currentUserId);
     }
     else if (m_networkManager->isClientConnected())
     {
-        // Envoyer une demande de leave au serveur
+        // Client connecté à un serveur distant : envoie une requête LeaveRoom
         QByteArray message = Protocol::createLeaveRoomMessage(m_currentRoomId);
         m_networkManager->sendMessage(message);
     }
+    else
+    {
+        QMessageBox::warning(this, "Erreur", "Vous n'êtes connecté à aucun serveur.");
+        return;
+    }
 
+    // Réinitialisation de l'état local
     m_currentRoomId.clear();
     m_userListWidget->setCurrentRoom(QString(), QString());
-    switchToLobbyMode();
+    switchToLobbyMode(); // retourne à la vue "lobby"
     statusBar()->showMessage("Salon quitté");
 }
 
