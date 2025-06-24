@@ -363,6 +363,23 @@ void DrumServer::processClientMessage(QTcpSocket* socket, const QByteArray& mess
         broadcastMessage(broadcastMsg);
         break;
     }
+    case MessageType::JOIN_ROOM: {
+        QString roomId = content["roomId"].toString();
+        QString userId = content["userId"].toString();
+        QString userName = content["userName"].toString();
+        QString password = content["password"].toString();
+
+        bool ok = m_roomManager->joinRoom(roomId, userId, userName, password);
+        if (ok) {
+            Room* room = m_roomManager->getRoom(roomId);
+            QByteArray response = Protocol::createRoomInfoMessage(room->toJson());
+            sendMessageToClient(clientId, response);
+        } else {
+            QByteArray errorMsg = Protocol::createErrorMessage("Impossible de rejoindre la salle");
+            sendMessageToClient(clientId, errorMsg);
+        }
+        break;
+    }
 
     default:
         qWarning() << "[SERVER] Type de message non géré:" << static_cast<int>(type);

@@ -80,6 +80,7 @@ public:
     static QByteArray createUserLeftMessage(const QString& userId);
     static QByteArray createHostChangedMessage(const QString& oldHostId, const QString& newHostId);
     static QByteArray createErrorMessage(const QString& error);
+    static QByteArray createJoinRoomMessage(const QString& roomId, const QString& userId, const QString& userName, const QString& password);
 
     // Messages existants
     static QByteArray createJoinMessage(const QString& userName);

@@ -9,6 +9,7 @@
 #include <QJsonObject>
 #include "Protocol.h"
 #include "DrumClient.h"
+#include "Room.h"
 
 #include <QMenuBar>
 #include <QToolBar>
@@ -106,20 +107,23 @@ MainWindow::~MainWindow()
 }
 
 
-void MainWindow::onConnectionEstablished() {
+void MainWindow::onConnectionEstablished()
+{
     qDebug() << "[MAINWINDOW] Connexion établie";
     updateNetworkStatus();
 
-    // Si on est client, connecter le signal roomListReceived
     if (m_networkManager->isClientConnected() && m_networkManager->getClient()) {
         // Connecter le signal pour recevoir la liste des salles
         connect(m_networkManager->getClient(), &DrumClient::roomListReceived,
                 this, [this](const QJsonArray& roomsArray) {
                     qDebug() << "[MAINWINDOW] Réception de" << roomsArray.size() << "salles";
                     m_roomListWidget->updateRoomList(roomsArray);
-                });
+                }, Qt::UniqueConnection);
 
-        // Demander la liste des salles après un court délai
+        // Connecter le signal pour recevoir l'état de la room
+        connect(m_networkManager->getClient(), &DrumClient::roomStateReceived,
+                this, &MainWindow::onRoomStateReceived, Qt::UniqueConnection);
+
         QTimer::singleShot(200, this, [this]() {
             if (m_networkManager->getClient()) {
                 m_networkManager->getClient()->requestRoomList();
@@ -127,6 +131,7 @@ void MainWindow::onConnectionEstablished() {
         });
     }
 }
+
 
 
 
@@ -287,9 +292,30 @@ void MainWindow::setupUI()
     m_roomListWidget->setCurrentUser(m_currentUserId, m_currentUserName);
     m_userListWidget->setCurrentUser(m_currentUserId);
 
+    if (m_networkManager->getClient()) {
+        connect(m_networkManager->getClient(), &DrumClient::roomStateReceived,
+                this, &MainWindow::onRoomStateReceived);
+    }
+
     // Titre de la fenêtre
     setWindowTitle("DrumBox Multiplayer - Lobby");
     resize(1200, 700);
+}
+
+void MainWindow::onRoomStateReceived(const QJsonObject& roomInfo)
+{
+    // Met à jour l’état courant et affiche la grille collaborative
+    m_currentRoomId = roomInfo["id"].toString();
+    m_userListWidget->setCurrentRoom(m_currentRoomId, roomInfo["name"].toString());
+    QList<User> users = User::listFromJson(roomInfo["users"].toArray());
+    m_userListWidget->updateUserList(users);
+    switchToGameMode();
+
+    // Synchronise la grille si tu as les infos dans le JSON
+    if (roomInfo.contains("grid")) {
+        m_drumGrid->setGridState(roomInfo["grid"].toObject());
+    }
+    statusBar()->showMessage(QString("Rejoint le salon '%1'").arg(roomInfo["name"].toString()));
 }
 
 void MainWindow::setupMenus()
@@ -560,8 +586,12 @@ void MainWindow::onJoinRoomRequested(const QString &roomId, const QString &passw
     else if (m_networkManager->isClientConnected())
     {
         // Envoyer une demande de join au serveur
-        QByteArray message = Protocol::createJoinRoomMessage(roomId, password);
-        m_networkManager->sendMessage(message);
+        m_networkManager->getClient()->joinRoom(
+            roomId,
+            m_currentUserId,
+            m_currentUserName,
+            password
+            );
     }
     else
     {

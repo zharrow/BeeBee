@@ -66,6 +66,16 @@ QByteArray Protocol::createTempoMessage(int bpm) {
     return createMessage(MessageType::TEMPO_CHANGE, data);
 }
 
+QByteArray Protocol::createJoinRoomMessage(const QString& roomId, const QString& userId, const QString& userName, const QString& password) {
+    QJsonObject data;
+    data["roomId"] = roomId;
+    data["userId"] = userId;
+    data["userName"] = userName;
+    data["password"] = password;
+    return createMessage(MessageType::JOIN_ROOM, data);
+}
+
+
 QByteArray Protocol::createPlayStateMessage(bool playing) {
     QJsonObject data;
     data["playing"] = playing;

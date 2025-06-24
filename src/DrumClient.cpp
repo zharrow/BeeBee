@@ -246,7 +246,6 @@ void DrumClient::processMessage(const QByteArray &data) {
         break;
     }
     case MessageType::ROOM_INFO: {
-        qDebug() << "[CLIENT] Info de salle reçue";
         emit roomStateReceived(content);
         break;
     }
@@ -255,6 +254,20 @@ void DrumClient::processMessage(const QByteArray &data) {
     }
 
     emit messageReceived(data);
+}
+
+void DrumClient::joinRoom(const QString& roomId, const QString& userId, const QString& userName, const QString& password) {
+    if (isConnected()) {
+        QJsonObject content;
+        content["roomId"] = roomId;
+        content["userId"] = userId;
+        content["userName"] = userName;
+        content["password"] = password;
+        QByteArray message = Protocol::createJoinRoomMessage(roomId, userId, userName, password);
+        sendMessage(message);
+    } else {
+        qWarning() << "[CLIENT] Pas de connexion pour rejoindre la salle";
+    }
 }
 
 

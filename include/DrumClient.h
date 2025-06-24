@@ -16,7 +16,7 @@ public:
     void disconnectFromServer();
     bool isConnected() const;
     void sendMessage(const QByteArray& message);
-
+    void joinRoom(const QString& roomId, const QString& userId, const QString& userName, const QString& password = QString());
     // Méthodes publiques pour les requêtes
     void requestRoomList();
     void requestRoomState(const QString& roomId);

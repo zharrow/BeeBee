@@ -69,6 +69,7 @@ private slots:
 private:
     void setupUI();
     void setupMenus();
+    void onRoomStateReceived(const QJsonObject& roomInfo);
     void setupToolbar();
     void setupStatusBar();
     void createConnectionDialog();
