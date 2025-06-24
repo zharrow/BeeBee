@@ -35,6 +35,7 @@ public:
     ~MainWindow();
 
     void createConnectionDialog();
+
 private slots:
     // Contrôles audio
     void onPlayPauseClicked();
@@ -75,6 +76,7 @@ private slots:
 private:
     // Méthodes de configuration UI
     void setupUI();
+    void setupMenus();  // Ajout de la déclaration manquante
     void setupToolbar();
     void setupStatusBar();
     void connectSignals();
@@ -138,7 +140,7 @@ private:
     QString m_currentRoomId;
     bool m_inGameMode;
 
-    // Nouveaux widgets pour les contrôles de colonnes et instruments
+    // Widgets pour les contrôles de colonnes et instruments
     QPushButton* m_addColumnBtn;
     QPushButton* m_removeColumnBtn;
     QLabel* m_stepCountLabel;
