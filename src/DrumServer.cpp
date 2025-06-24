@@ -7,7 +7,7 @@
 
 DrumServer::DrumServer(QObject *parent)
     : QObject(parent), m_server(new QTcpServer(this)), m_pingTimer(new QTimer(this)),
-    m_roomManager(new RoomManager(this))
+    m_roomManager(nullptr)
 {
     connect(m_server, &QTcpServer::newConnection, this, &DrumServer::onNewConnection);
 
@@ -300,6 +300,15 @@ void DrumServer::onPingTimer()
     }
 }
 
+void DrumServer::setRoomManager(RoomManager* roomManager) {
+    Q_ASSERT(roomManager != nullptr);
+    m_roomManager = roomManager;
+    qDebug() << "[SERVER] RoomManager partagé configuré";
+}
+
+
+
+
 void DrumServer::processClientMessage(QTcpSocket* socket, const QByteArray& message) {
     QString clientId = m_clients.key(socket);
 
@@ -372,6 +381,8 @@ QString DrumServer::getClientId(QTcpSocket *socket) const
     }
     return QString();
 }
+
+
 
 // Méthodes utilitaires supplémentaires
 

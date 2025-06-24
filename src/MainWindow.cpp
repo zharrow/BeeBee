@@ -4,6 +4,7 @@
 #include "UserListWidget.h"
 
 #include <QTimer>
+#include "DrumServer.h"
 #include <QJsonArray>
 #include <QJsonObject>
 #include "Protocol.h"
@@ -63,10 +64,32 @@ MainWindow::MainWindow(QWidget *parent)
     // Configuration audio
     m_audioEngine->loadSamples();
 
+    // NE PAS démarrer le serveur automatiquement ici
+    // Le serveur sera démarré quand l'utilisateur choisit "Héberger"
+
     // État initial
     switchToLobbyMode();
     updateNetworkStatus();
 }
+
+void MainWindow::startServer() {
+    if (m_networkManager->startServer(8888)) {
+        qDebug() << "[MAINWINDOW] Serveur démarré avec succès";
+        if (m_networkManager->getServer()) {
+            m_networkManager->getServer()->setRoomManager(m_roomManager);
+            qDebug() << "[MAINWINDOW] RoomManager partagé avec le serveur";
+            // Test immédiat
+            QList<Room*> rooms = m_roomManager->getPublicRooms();
+            qDebug() << "[MAINWINDOW] Salles visibles après partage:" << rooms.size();
+        } else {
+            qWarning() << "[MAINWINDOW] Erreur : serveur non trouvé après démarrage";
+        }
+    } else {
+        qWarning() << "[MAINWINDOW] Échec du démarrage du serveur";
+    }
+}
+
+
 
 
 MainWindow::~MainWindow()
@@ -428,6 +451,11 @@ void MainWindow::onStartServerClicked()
     quint16 port = m_portSpin->value();
     if (m_networkManager->startServer(port))
     {
+        // AJOUTER ICI :
+        if (m_networkManager->getServer()) {
+            m_networkManager->getServer()->setRoomManager(m_roomManager);
+            qDebug() << "[MAINWINDOW] RoomManager partagé avec le serveur";
+        }
         m_startServerBtn->setText("Arrêter Serveur");
         statusBar()->showMessage(QString("Serveur démarré sur le port %1").arg(port));
         onRefreshRoomsRequested();
@@ -438,6 +466,7 @@ void MainWindow::onStartServerClicked()
     }
     updateNetworkStatus();
 }
+
 
 void MainWindow::onConnectToServerClicked()
 {
@@ -482,11 +511,15 @@ void MainWindow::onCreateRoomRequested(const QString &name, const QString &passw
 {
     if (!m_networkManager->isServerRunning())
     {
-        // Démarrer le serveur automatiquement
         if (!m_networkManager->startServer(m_portSpin->value()))
         {
             QMessageBox::warning(this, "Erreur", "Impossible de démarrer le serveur pour héberger le salon.");
             return;
+        }
+        // AJOUTER ICI :
+        if (m_networkManager->getServer()) {
+            m_networkManager->getServer()->setRoomManager(m_roomManager);
+            qDebug() << "[MAINWINDOW] RoomManager partagé avec le serveur (auto)";
         }
     }
 

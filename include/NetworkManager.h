@@ -5,6 +5,7 @@
 #include <QJsonObject>
 #include "Protocol.h"
 
+
 // Forward declarations
 class DrumServer;
 class DrumClient;
@@ -17,6 +18,7 @@ public:
     DrumServer *getDrumServer() const { return m_server; }
     DrumClient* getClient() const { return m_client; }
     DrumServer* getServer() const { return m_server; }
+
 
     explicit NetworkManager(QObject *parent = nullptr);
     ~NetworkManager();

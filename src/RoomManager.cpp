@@ -19,30 +19,34 @@ RoomManager::~RoomManager() {
     qDeleteAll(m_rooms);
 }
 
-QString RoomManager::createRoom(const QString& name, const QString& hostId,
-                                const QString& hostName, const QString& password) {
-    QString roomId = QUuid::createUuid().toString();
+QString RoomManager::createRoom(const QString& name, const QString& hostId, const QString& hostName, const QString& password) {
+    QString roomId = generateRoomId();
 
     Room* room = new Room(roomId, name, hostId, this);
     if (!password.isEmpty()) {
         room->setPassword(password);
     }
 
-    // Ajouter l'hôte à la salle
+    connect(room, &Room::roomEmpty, this, &RoomManager::onRoomEmpty);
+    connect(room, &Room::userJoined, this, [this, roomId](const User& user) {
+        emit userJoinedRoom(roomId, user);
+    });
+    connect(room, &Room::userLeft, this, [this, roomId](const QString& userId) {
+        emit userLeftRoom(roomId, userId);
+    });
+
+    // Ajouter l'hôte à la room
     User host;
     host.id = hostId;
     host.name = hostName;
     host.isHost = true;
     room->addUser(host);
 
-    m_rooms[roomId] = room;  // S'assurer que la salle est stockée
-
-    qDebug() << "[ROOMMANAGER] Salle créée:" << name
-             << "ID:" << roomId
-             << "Password:" << (!password.isEmpty() ? "Oui" : "Non")
-             << "Total salles:" << m_rooms.size();
-
+    m_rooms[roomId] = room;
     emit roomCreated(roomId);
+    emit roomListChanged();
+
+    qDebug() << "Room créée:" << roomId << "par" << hostName;
     return roomId;
 }
 
@@ -71,26 +75,13 @@ QList<Room*> RoomManager::getAllRooms() const {
 
 QList<Room*> RoomManager::getPublicRooms() const {
     QList<Room*> publicRooms;
-
-    qDebug() << "[ROOMMANAGER] Total des salles:" << m_rooms.size();
-
     for (Room* room : m_rooms) {
-        if (room) {
-            qDebug() << "[ROOMMANAGER] Salle:" << room->getName()
-            << "hasPassword:" << room->hasPassword()
-            << "isEmpty:" << room->isEmpty();
-
-            if (!room->hasPassword()) {  // Seulement les salles publiques
-                publicRooms.append(room);
-                qDebug() << "[ROOMMANAGER] Salle ajoutée aux publiques:" << room->getName();
-            }
+        if (!room->hasPassword()) {
+            publicRooms.append(room);
         }
     }
-
-    qDebug() << "[ROOMMANAGER] Salles publiques retournées:" << publicRooms.size();
     return publicRooms;
 }
-
 
 bool RoomManager::joinRoom(const QString& roomId, const QString& userId, const QString& userName, const QString& password) {
     Room* room = getRoom(roomId);

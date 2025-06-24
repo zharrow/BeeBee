@@ -11,10 +11,11 @@ class DrumServer : public QObject
     Q_OBJECT
 
 public:
-    void setRoomManager(RoomManager *roomManager) { m_roomManager = roomManager; }
 
     explicit DrumServer(QObject *parent = nullptr);
     ~DrumServer();
+    void setRoomManager(RoomManager* roomManager);
+
 
     bool startListening(quint16 port);
     void stopListening();
@@ -58,7 +59,7 @@ private:
 
     QTimer *m_pingTimer;
 
-    RoomManager *m_roomManager = nullptr;
+    RoomManager* m_roomManager = nullptr;
     QMap<QTcpSocket*, QString> m_socketToId;
 
 };
