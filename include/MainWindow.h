@@ -74,6 +74,8 @@ private:
     void setupStatusBar();
     void createConnectionDialog();
 
+    void onRoomListReceived(const QJsonArray& roomsArray);
+
     void updatePlayButton();
     void updateNetworkStatus();
     void updateRoomDisplay();

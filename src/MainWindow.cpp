@@ -113,14 +113,11 @@ void MainWindow::onConnectionEstablished()
     updateNetworkStatus();
 
     if (m_networkManager->isClientConnected() && m_networkManager->getClient()) {
-        // Connecter le signal pour recevoir la liste des salles
+        // Connect the signal for receiving the room list
         connect(m_networkManager->getClient(), &DrumClient::roomListReceived,
-                this, [this](const QJsonArray& roomsArray) {
-                    qDebug() << "[MAINWINDOW] Réception de" << roomsArray.size() << "salles";
-                    m_roomListWidget->updateRoomList(roomsArray);
-                }, Qt::UniqueConnection);
+                this, &MainWindow::onRoomListReceived, Qt::UniqueConnection);
 
-        // Connecter le signal pour recevoir l'état de la room
+        // Connect the signal for receiving the room state
         connect(m_networkManager->getClient(), &DrumClient::roomStateReceived,
                 this, &MainWindow::onRoomStateReceived, Qt::UniqueConnection);
 
@@ -302,20 +299,20 @@ void MainWindow::setupUI()
     resize(1200, 700);
 }
 
-void MainWindow::onRoomStateReceived(const QJsonObject& roomInfo)
-{
-    // Met à jour l’état courant et affiche la grille collaborative
+void MainWindow::onRoomStateReceived(const QJsonObject& roomInfo) {
     m_currentRoomId = roomInfo["id"].toString();
     m_userListWidget->setCurrentRoom(m_currentRoomId, roomInfo["name"].toString());
-    QList<User> users = User::listFromJson(roomInfo["users"].toArray());
-    m_userListWidget->updateUserList(users);
+    m_userListWidget->updateUserList(User::listFromJson(roomInfo["users"].toArray()));
     switchToGameMode();
-
-    // Synchronise la grille si tu as les infos dans le JSON
     if (roomInfo.contains("grid")) {
         m_drumGrid->setGridState(roomInfo["grid"].toObject());
     }
     statusBar()->showMessage(QString("Rejoint le salon '%1'").arg(roomInfo["name"].toString()));
+}
+
+void MainWindow::onRoomListReceived(const QJsonArray& roomsArray) {
+    qDebug() << "[MAINWINDOW] Room list received:" << roomsArray.size();
+    m_roomListWidget->updateRoomList(roomsArray);
 }
 
 void MainWindow::setupMenus()
