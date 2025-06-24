@@ -122,9 +122,6 @@ MainWindow::MainWindow(QWidget* parent)
     centerWindow();
 
     // Configuration de l'interface
-    setupUI();
-    setupToolbar();
-    setupStatusBar();
     connectSignals();
     applyModernStyle();
 
@@ -378,6 +375,50 @@ QWidget* MainWindow::createControlPanel() {
     QWidget* playbackCard = createPlaybackCard();
     layout->addWidget(playbackCard);
 
+    // Contrôles pour la grille
+    QGroupBox* gridControlGroup = new QGroupBox("Grille", this);
+    QVBoxLayout* gridControlLayout = new QVBoxLayout(gridControlGroup);
+
+    // Contrôles de colonnes
+    QHBoxLayout* columnLayout = new QHBoxLayout();
+    QLabel* columnLabel = new QLabel("Colonnes:", this);
+    m_removeColumnBtn = new QPushButton("-", this);
+    m_removeColumnBtn->setMaximumWidth(30);
+    m_removeColumnBtn->setToolTip("Enlever une colonne");
+
+    m_stepCountLabel = new QLabel("16", this);
+    m_stepCountLabel->setAlignment(Qt::AlignCenter);
+    m_stepCountLabel->setMinimumWidth(30);
+    m_stepCountLabel->setStyleSheet("font-weight: bold;");
+
+    m_addColumnBtn = new QPushButton("+", this);
+    m_addColumnBtn->setMaximumWidth(30);
+    m_addColumnBtn->setToolTip("Ajouter une colonne");
+
+    columnLayout->addWidget(columnLabel);
+    columnLayout->addWidget(m_removeColumnBtn);
+    columnLayout->addWidget(m_stepCountLabel);
+    columnLayout->addWidget(m_addColumnBtn);
+    columnLayout->addStretch();
+
+    gridControlLayout->addLayout(columnLayout);
+
+    // Affichage du nombre d'instruments
+    QHBoxLayout* instrumentLayout = new QHBoxLayout();
+    QLabel* instrumentLabel = new QLabel("Instruments:", this);
+    m_instrumentCountLabel = new QLabel("8", this);
+    m_instrumentCountLabel->setAlignment(Qt::AlignCenter);
+    m_instrumentCountLabel->setMinimumWidth(30);
+    m_instrumentCountLabel->setStyleSheet("font-weight: bold; color: #2E8B57;");
+
+    instrumentLayout->addWidget(instrumentLabel);
+    instrumentLayout->addWidget(m_instrumentCountLabel);
+    instrumentLayout->addStretch();
+
+    gridControlLayout->addLayout(instrumentLayout);
+
+    layout->addWidget(gridControlGroup);
+
     // Liste des utilisateurs en jeu
     layout->addWidget(m_userListWidget);
 
@@ -453,21 +494,6 @@ QPushButton* MainWindow::createStyledButton(const QString& text, const QString& 
 }
 
 void MainWindow::connectSignals() {
-    // Connexions audio
-    connect(m_drumGrid, &DrumGrid::stepTriggered, this, [this](int step, const QList<int>& instruments) {
-        m_audioEngine->playMultipleInstruments(instruments);
-    });
-    connect(m_drumGrid, &DrumGrid::cellClicked, this, &MainWindow::onGridCellClicked);
-    connect(m_drumGrid, &DrumGrid::stepTriggered, this, &MainWindow::onStepTriggered);
-
-    // Connexions réseau
-    connect(m_networkManager, &NetworkManager::messageReceived, this, &MainWindow::onMessageReceived);
-    connect(m_networkManager, &NetworkManager::clientConnected, this, &MainWindow::onClientConnected);
-    connect(m_networkManager, &NetworkManager::clientDisconnected, this, &MainWindow::onClientDisconnected);
-    connect(m_networkManager, &NetworkManager::connectionEstablished, this, &MainWindow::onConnectionEstablished);
-    connect(m_networkManager, &NetworkManager::connectionLost, this, &MainWindow::onConnectionLost);
-    connect(m_networkManager, &NetworkManager::errorOccurred, this, &MainWindow::onNetworkError);
-
     // Connexions des boutons
     connect(m_startServerBtn, &QPushButton::clicked, this, &MainWindow::onStartServerClicked);
     connect(m_connectBtn, &QPushButton::clicked, this, &MainWindow::onConnectToServerClicked);
@@ -475,48 +501,6 @@ void MainWindow::connectSignals() {
     connect(m_userNameEdit, &QLineEdit::textChanged, [this](const QString& text) {
         m_currentUserName = text.isEmpty() ? "Joueur" : text;
     });
-
-    // Contrôles pour la grille
-    QGroupBox* gridControlGroup = new QGroupBox("Grille", this);
-    QVBoxLayout* gridControlLayout = new QVBoxLayout(gridControlGroup);
-
-    // Contrôles de colonnes
-    QHBoxLayout* columnLayout = new QHBoxLayout();
-    QLabel* columnLabel = new QLabel("Colonnes:", this);
-    m_removeColumnBtn = new QPushButton("-", this);
-    m_removeColumnBtn->setMaximumWidth(30);
-    m_removeColumnBtn->setToolTip("Enlever une colonne");
-
-    m_stepCountLabel = new QLabel("16", this);
-    m_stepCountLabel->setAlignment(Qt::AlignCenter);
-    m_stepCountLabel->setMinimumWidth(30);
-    m_stepCountLabel->setStyleSheet("font-weight: bold;");
-
-    m_addColumnBtn = new QPushButton("+", this);
-    m_addColumnBtn->setMaximumWidth(30);
-    m_addColumnBtn->setToolTip("Ajouter une colonne");
-
-    columnLayout->addWidget(columnLabel);
-    columnLayout->addWidget(m_removeColumnBtn);
-    columnLayout->addWidget(m_stepCountLabel);
-    columnLayout->addWidget(m_addColumnBtn);
-    columnLayout->addStretch();
-
-    gridControlLayout->addLayout(columnLayout);
-
-    // Affichage du nombre d'instruments
-    QHBoxLayout* instrumentLayout = new QHBoxLayout();
-    QLabel* instrumentLabel = new QLabel("Instruments:", this);
-    m_instrumentCountLabel = new QLabel("8", this);
-    m_instrumentCountLabel->setAlignment(Qt::AlignCenter);
-    m_instrumentCountLabel->setMinimumWidth(30);
-    m_instrumentCountLabel->setStyleSheet("font-weight: bold; color: #2E8B57;");
-
-    instrumentLayout->addWidget(instrumentLabel);
-    instrumentLayout->addWidget(m_instrumentCountLabel);
-    instrumentLayout->addStretch();
-
-    gridControlLayout->addLayout(instrumentLayout);
 
     // Connexions pour les boutons de colonnes
     connect(m_addColumnBtn, &QPushButton::clicked, this, &MainWindow::onAddColumnClicked);
@@ -543,16 +527,84 @@ void MainWindow::connectSignals() {
     connect(m_roomListWidget, &RoomListWidget::joinRoomRequested, this, &MainWindow::onJoinRoomRequested);
     connect(m_roomListWidget, &RoomListWidget::refreshRequested, this, &MainWindow::onRefreshRoomsRequested);
 
-    // Assemblage du panneau de contrôle
-    controlLayout->addWidget(playGroup);
-    controlLayout->addWidget(gridControlGroup);
-    controlLayout->addWidget(m_userListWidget);
-    controlLayout->addStretch();
-
     // Connexions user list
     connect(m_userListWidget, &UserListWidget::leaveRoomRequested, this, &MainWindow::onLeaveRoomRequested);
     connect(m_userListWidget, &UserListWidget::kickUserRequested, this, &MainWindow::onKickUserRequested);
     connect(m_userListWidget, &UserListWidget::transferHostRequested, this, &MainWindow::onTransferHostRequested);
+}
+
+void MainWindow::setupMenus() {
+    // Menu Fichier
+    QMenu* fileMenu = menuBar()->addMenu("&Fichier");
+    fileMenu->addAction("&Nouveau", QKeySequence::New, [this]() { /* TODO */ });
+    fileMenu->addAction("&Ouvrir", QKeySequence::Open, [this]() { /* TODO */ });
+    fileMenu->addAction("&Sauvegarder", QKeySequence::Save, [this]() { /* TODO */ });
+    fileMenu->addSeparator();
+    fileMenu->addAction("&Quitter", QKeySequence::Quit, this, &QWidget::close);
+
+    // Menu Audio avec gestion des limites
+    QMenu* audioMenu = menuBar()->addMenu("&Audio");
+    audioMenu->addAction("&Recharger les samples", this, &MainWindow::reloadAudioSamples);
+    audioMenu->addSeparator();
+    audioMenu->addAction("&Ouvrir dossier samples", [this]() {
+        QString samplesPath = QCoreApplication::applicationDirPath() + "/samples";
+        QDesktopServices::openUrl(QUrl::fromLocalFile(samplesPath));
+    });
+
+    audioMenu->addSeparator();
+
+    QAction* setLimitAction = audioMenu->addAction("&Définir limite d'instruments");
+    connect(setLimitAction, &QAction::triggered, [this]() {
+        bool ok;
+        int currentLimit = m_audioEngine->getMaxInstruments();
+        QString currentText = (currentLimit == 0) ? "Illimité" : QString::number(currentLimit);
+
+        int newLimit = QInputDialog::getInt(this, "Limite d'instruments",
+                                            QString("Limite actuelle: %1\n\nNouvelle limite (0 = illimité):").arg(currentText),
+                                            currentLimit, 0, 1000, 1, &ok);
+        if (ok) {
+            m_audioEngine->setMaxInstruments(newLimit);
+            reloadAudioSamples();
+
+            QString message = (newLimit == 0) ? "Limite supprimée - Tous les instruments seront chargés"
+                                              : QString("Limite définie à %1 instruments").arg(newLimit);
+            statusBar()->showMessage(message, 3000);
+        }
+    });
+
+    QAction* showStatsAction = audioMenu->addAction("&Statistiques des instruments");
+    connect(showStatsAction, &QAction::triggered, [this]() {
+        int currentCount = m_audioEngine->getInstrumentCount();
+        int currentLimit = m_audioEngine->getMaxInstruments();
+        QString limitText = (currentLimit == 0) ? "Illimitée" : QString::number(currentLimit);
+
+        // Compter les fichiers dans le dossier samples
+        QString samplesPath = QCoreApplication::applicationDirPath() + "/samples";
+        QDir samplesDir(samplesPath);
+        QStringList filters = {"*.wav", "*.mp3", "*.ogg", "*.flac", "*.aac", "*.m4a"};
+        int totalFiles = samplesDir.entryList(filters, QDir::Files).size();
+
+        QString stats = QString("Statistiques des instruments:\n\n"
+                                "Instruments chargés: %1\n"
+                                "Fichiers audio détectés: %2\n"
+                                "Limite actuelle: %3\n"
+                                "Dossier samples: %4")
+                            .arg(currentCount)
+                            .arg(totalFiles)
+                            .arg(limitText)
+                            .arg(samplesPath);
+
+        QMessageBox::information(this, "Statistiques", stats);
+    });
+}
+
+void MainWindow::setupToolbar() {
+    // Pas de toolbar dans cette version moderne
+}
+
+void MainWindow::setupStatusBar() {
+    statusBar()->setObjectName("statusBar");
+    // statusBar()->showMessage("Bienvenue dans BeeBee - Collaborative Drum Machine !");
 }
 
 void MainWindow::applyModernStyle() {
@@ -727,77 +779,6 @@ void MainWindow::cleanupConnections() {
     } else if (m_networkManager->isClientConnected()) {
         m_networkManager->disconnectFromServer();
     }
-}
-
-    // Menu Fichier
-    QMenu* fileMenu = menuBar->addMenu("&Fichier");
-    fileMenu->addAction("&Nouveau", QKeySequence::New, [this]() { /* TODO */ });
-    fileMenu->addAction("&Ouvrir", QKeySequence::Open, [this]() { /* TODO */ });
-    fileMenu->addAction("&Sauvegarder", QKeySequence::Save, [this]() { /* TODO */ });
-    fileMenu->addSeparator();
-    fileMenu->addAction("&Quitter", QKeySequence::Quit, this, &QWidget::close);
-
-    // Menu Audio avec gestion des limites
-    QMenu* audioMenu = menuBar->addMenu("&Audio");
-    audioMenu->addAction("&Recharger les samples", this, &MainWindow::reloadAudioSamples);
-    audioMenu->addSeparator();
-    audioMenu->addAction("&Ouvrir dossier samples", [this]() {
-        QString samplesPath = QCoreApplication::applicationDirPath() + "/samples";
-        QDesktopServices::openUrl(QUrl::fromLocalFile(samplesPath));
-    });
-
-    audioMenu->addSeparator();
-
-    QAction* setLimitAction = audioMenu->addAction("&Définir limite d'instruments");
-    connect(setLimitAction, &QAction::triggered, [this]() {
-        bool ok;
-        int currentLimit = m_audioEngine->getMaxInstruments();
-        QString currentText = (currentLimit == 0) ? "Illimité" : QString::number(currentLimit);
-
-        int newLimit = QInputDialog::getInt(this, "Limite d'instruments",
-                                            QString("Limite actuelle: %1\n\nNouvelle limite (0 = illimité):").arg(currentText),
-                                            currentLimit, 0, 1000, 1, &ok);
-        if (ok) {
-            m_audioEngine->setMaxInstruments(newLimit);
-            reloadAudioSamples();
-
-            QString message = (newLimit == 0) ? "Limite supprimée - Tous les instruments seront chargés"
-                                              : QString("Limite définie à %1 instruments").arg(newLimit);
-            statusBar()->showMessage(message, 3000);
-        }
-    });
-
-    QAction* showStatsAction = audioMenu->addAction("&Statistiques des instruments");
-    connect(showStatsAction, &QAction::triggered, [this]() {
-        int currentCount = m_audioEngine->getInstrumentCount();
-        int currentLimit = m_audioEngine->getMaxInstruments();
-        QString limitText = (currentLimit == 0) ? "Illimitée" : QString::number(currentLimit);
-
-        // Compter les fichiers dans le dossier samples
-        QString samplesPath = QCoreApplication::applicationDirPath() + "/samples";
-        QDir samplesDir(samplesPath);
-        QStringList filters = {"*.wav", "*.mp3", "*.ogg", "*.flac", "*.aac", "*.m4a"};
-        int totalFiles = samplesDir.entryList(filters, QDir::Files).size();
-
-        QString stats = QString("Statistiques des instruments:\n\n"
-                                "Instruments chargés: %1\n"
-                                "Fichiers audio détectés: %2\n"
-                                "Limite actuelle: %3\n"
-                                "Dossier samples: %4")
-                            .arg(currentCount)
-                            .arg(totalFiles)
-                            .arg(limitText)
-                            .arg(samplesPath);
-
-        QMessageBox::information(this, "Statistiques", stats);
-    });
-void MainWindow::setupToolbar() {
-    // Pas de toolbar dans cette version moderne
-}
-
-void MainWindow::setupStatusBar() {
-    statusBar()->setObjectName("statusBar");
-    // statusBar()->showMessage("Bienvenue dans BeeBee - Collaborative Drum Machine !");
 }
 
 void MainWindow::switchToLobbyMode() {
@@ -1434,9 +1415,5 @@ void MainWindow::onStepCountChanged(int newCount) {
 }
 
 void MainWindow::createConnectionDialog() {
-    // TODO: Implémenter si nécessaire
-}
-
-void MainWindow::setupToolbar() {
     // TODO: Implémenter si nécessaire
 }

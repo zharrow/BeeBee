@@ -47,8 +47,7 @@ void DrumGrid::setupGrid(int instruments, int steps) {
     m_cellStates.clear();
 
     m_table->setRowCount(m_instruments);
-    m_table->setRowCount(instruments);
-    m_table->setColumnCount(steps);
+    m_table->setColumnCount(m_steps);
 
     // Style moderne pour la table
     m_table->setStyleSheet(R"(
@@ -77,9 +76,6 @@ void DrumGrid::setupGrid(int instruments, int steps) {
             border: 1px solid rgba(59, 130, 246, 0.3);
         }
     )");
-
-    m_table->setColumnCount(m_steps);
-
 
     // Configuration de l'apparence
     m_table->horizontalHeader()->setDefaultSectionSize(40);
