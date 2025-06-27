@@ -26,127 +26,228 @@
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
-    , m_drumGrid(new DrumGrid(this))
-    , m_audioEngine(new AudioEngine(this))
-    , m_networkManager(new NetworkManager(this))
-    , m_roomManager(new RoomManager(this))
-    , m_roomListWidget(new RoomListWidget(this))
-    , m_userListWidget(new UserListWidget(this))
-    , m_stackedWidget(new QStackedWidget(this))
+    , m_drumGrid(nullptr)
+    , m_audioEngine(nullptr)
+    , m_networkManager(nullptr)
+    , m_roomManager(nullptr)
+    , m_roomListWidget(nullptr)
+    , m_userListWidget(nullptr)
+    , m_stackedWidget(nullptr)
     , m_isPlaying(false)
     , m_inGameMode(false)
 {
-    // Générer un ID utilisateur unique
-    m_currentUserId = QUuid::createUuid().toString();
-    m_currentUserName = "User";
+    qDebug() << "=== DEBUT CONSTRUCTION MAINWINDOW ===";
 
-    setupUI();
-    setupMenus();
-    setupStatusBar();
+    try {
+        // Générer un ID utilisateur unique
+        qDebug() << "Génération ID utilisateur...";
+        m_currentUserId = QUuid::createUuid().toString();
+        m_currentUserName = "User";
+        qDebug() << "ID utilisateur généré:" << m_currentUserId;
 
-    // Configuration pour permettre plus d'instruments
-    // Par défaut : illimité (0), ou définir une limite personnalisée
-    m_audioEngine->setMaxInstruments(0); // 0 = illimité
+        // Création des objets un par un avec vérification
+        qDebug() << "Création DrumGrid...";
+        m_drumGrid = new DrumGrid(this);
+        if (!m_drumGrid) {
+            qDebug() << "ERREUR: Échec création DrumGrid";
+            return;
+        }
+        qDebug() << "DrumGrid créé avec succès";
 
-    // Connexions audio
-    connect(m_drumGrid, &DrumGrid::stepTriggered, this, [this](int step, const QList<int> &instruments) {
-        m_audioEngine->playMultipleInstruments(instruments);
-    });
-    connect(m_drumGrid, &DrumGrid::cellClicked, this, &MainWindow::onGridCellClicked);
-    connect(m_drumGrid, &DrumGrid::stepTriggered, this, &MainWindow::onStepTriggered);
+        qDebug() << "Création AudioEngine...";
+        m_audioEngine = new AudioEngine(this);
+        if (!m_audioEngine) {
+            qDebug() << "ERREUR: Échec création AudioEngine";
+            return;
+        }
+        qDebug() << "AudioEngine créé avec succès";
 
-    // Connexion pour la mise à jour dynamique des instruments
-    connect(m_audioEngine, &AudioEngine::instrumentCountChanged, this, [this](int newCount) {
-        // Mettre à jour la grille avec le nouveau nombre d'instruments
-        m_drumGrid->setInstrumentCount(newCount);
+        qDebug() << "Création NetworkManager...";
+        m_networkManager = new NetworkManager(this);
+        if (!m_networkManager) {
+            qDebug() << "ERREUR: Échec création NetworkManager";
+            return;
+        }
+        qDebug() << "NetworkManager créé avec succès";
 
-        // Mettre à jour les noms d'instruments
-        QStringList instrumentNames = m_audioEngine->getInstrumentNames();
-        m_drumGrid->setInstrumentNames(instrumentNames);
+        qDebug() << "Création RoomManager...";
+        m_roomManager = new RoomManager(this);
+        if (!m_roomManager) {
+            qDebug() << "ERREUR: Échec création RoomManager";
+            return;
+        }
+        qDebug() << "RoomManager créé avec succès";
 
-        qDebug() << "Nombre d'instruments mis à jour:" << newCount;
-        statusBar()->showMessage(QString("Instruments chargés: %1").arg(newCount), 3000);
-    });
+        qDebug() << "Création RoomListWidget...";
+        m_roomListWidget = new RoomListWidget(this);
+        if (!m_roomListWidget) {
+            qDebug() << "ERREUR: Échec création RoomListWidget";
+            return;
+        }
+        qDebug() << "RoomListWidget créé avec succès";
 
-    // Connexion pour gérer l'avertissement de limite atteinte
-    connect(m_audioEngine, &AudioEngine::maxInstrumentsReached, this,
-            [this](int maxCount, int totalFiles) {
-                QString message = QString("Limite d'instruments atteinte !\n\n"
-                                          "Fichiers trouvés: %1\n"
-                                          "Instruments chargés: %2\n"
-                                          "Fichiers ignorés: %3\n\n"
-                                          "Voulez-vous augmenter la limite ou charger tous les fichiers ?")
-                                      .arg(totalFiles)
-                                      .arg(maxCount)
-                                      .arg(totalFiles - maxCount);
+        qDebug() << "Création UserListWidget...";
+        m_userListWidget = new UserListWidget(this);
+        if (!m_userListWidget) {
+            qDebug() << "ERREUR: Échec création UserListWidget";
+            return;
+        }
+        qDebug() << "UserListWidget créé avec succès";
 
-                QMessageBox msgBox(this);
-                msgBox.setWindowTitle("Limite d'instruments");
-                msgBox.setText(message);
-                msgBox.setIcon(QMessageBox::Question);
+        qDebug() << "Création StackedWidget...";
+        m_stackedWidget = new QStackedWidget(this);
+        if (!m_stackedWidget) {
+            qDebug() << "ERREUR: Échec création StackedWidget";
+            return;
+        }
+        qDebug() << "StackedWidget créé avec succès";
 
-                QPushButton* unlimitedBtn = msgBox.addButton("Charger tous", QMessageBox::ActionRole);
-                QPushButton* limitBtn = msgBox.addButton("Garder la limite", QMessageBox::RejectRole);
-                QPushButton* customBtn = msgBox.addButton("Limite personnalisée", QMessageBox::ActionRole);
+        qDebug() << "Début setupUI()...";
+        setupUI();
+        qDebug() << "setupUI() terminé avec succès";
 
-                msgBox.exec();
+        qDebug() << "Début setupMenus()...";
+        setupMenus();
+        qDebug() << "setupMenus() terminé avec succès";
 
-                if (msgBox.clickedButton() == unlimitedBtn) {
-                    // Supprimer la limite et recharger
-                    m_audioEngine->setMaxInstruments(0);
-                    reloadAudioSamples();
-                    statusBar()->showMessage("Tous les instruments ont été chargés", 3000);
-                } else if (msgBox.clickedButton() == customBtn) {
-                    // Demander une limite personnalisée
-                    bool ok;
-                    int newLimit = QInputDialog::getInt(this, "Limite personnalisée",
-                                                        "Nombre maximum d'instruments:",
-                                                        maxCount, 1, 1000, 1, &ok);
-                    if (ok && newLimit > maxCount) {
-                        m_audioEngine->setMaxInstruments(newLimit);
+        qDebug() << "Début setupStatusBar()...";
+        setupStatusBar();
+        qDebug() << "setupStatusBar() terminé avec succès";
+
+        // Configuration AudioEngine
+        qDebug() << "Configuration AudioEngine...";
+        m_audioEngine->setMaxInstruments(0); // 0 = illimité
+        qDebug() << "AudioEngine configuré";
+
+        // Connexions audio
+        qDebug() << "Début connexions audio...";
+        connect(m_drumGrid, &DrumGrid::stepTriggered, this, [this](int step, const QList<int> &instruments) {
+            m_audioEngine->playMultipleInstruments(instruments);
+        });
+        connect(m_drumGrid, &DrumGrid::cellClicked, this, &MainWindow::onGridCellClicked);
+        connect(m_drumGrid, &DrumGrid::stepTriggered, this, &MainWindow::onStepTriggered);
+        qDebug() << "Connexions audio terminées";
+
+        // Connexion pour la mise à jour dynamique des instruments
+        qDebug() << "Connexion mise à jour instruments...";
+        connect(m_audioEngine, &AudioEngine::instrumentCountChanged, this, [this](int newCount) {
+            m_drumGrid->setInstrumentCount(newCount);
+            QStringList instrumentNames = m_audioEngine->getInstrumentNames();
+            m_drumGrid->setInstrumentNames(instrumentNames);
+            qDebug() << "Nombre d'instruments mis à jour:" << newCount;
+            statusBar()->showMessage(QString("Instruments chargés: %1").arg(newCount), 3000);
+        });
+        qDebug() << "Connexion instruments terminée";
+
+        // Connexion pour gérer l'avertissement de limite atteinte
+        qDebug() << "Connexion limite instruments...";
+        connect(m_audioEngine, &AudioEngine::maxInstrumentsReached, this,
+                [this](int maxCount, int totalFiles) {
+                    QString message = QString("Limite d'instruments atteinte !\n\n"
+                                              "Fichiers trouvés: %1\n"
+                                              "Instruments chargés: %2\n"
+                                              "Fichiers ignorés: %3\n\n"
+                                              "Voulez-vous augmenter la limite ou charger tous les fichiers ?")
+                                          .arg(totalFiles)
+                                          .arg(maxCount)
+                                          .arg(totalFiles - maxCount);
+
+                    QMessageBox msgBox(this);
+                    msgBox.setWindowTitle("Limite d'instruments");
+                    msgBox.setText(message);
+                    msgBox.setIcon(QMessageBox::Question);
+
+                    QPushButton* unlimitedBtn = msgBox.addButton("Charger tous", QMessageBox::ActionRole);
+                    QPushButton* limitBtn = msgBox.addButton("Garder la limite", QMessageBox::RejectRole);
+                    QPushButton* customBtn = msgBox.addButton("Limite personnalisée", QMessageBox::ActionRole);
+
+                    msgBox.exec();
+
+                    if (msgBox.clickedButton() == unlimitedBtn) {
+                        m_audioEngine->setMaxInstruments(0);
                         reloadAudioSamples();
-                        statusBar()->showMessage(QString("Limite augmentée à %1 instruments").arg(newLimit), 3000);
+                        statusBar()->showMessage("Tous les instruments ont été chargés", 3000);
+                    } else if (msgBox.clickedButton() == customBtn) {
+                        bool ok;
+                        int newLimit = QInputDialog::getInt(this, "Limite personnalisée",
+                                                            "Nombre maximum d'instruments:",
+                                                            maxCount, 1, 1000, 1, &ok);
+                        if (ok && newLimit > maxCount) {
+                            m_audioEngine->setMaxInstruments(newLimit);
+                            reloadAudioSamples();
+                            statusBar()->showMessage(QString("Limite augmentée à %1 instruments").arg(newLimit), 3000);
+                        }
                     }
-                }
-                // Si "Garder la limite" : ne rien faire
-            });
+                });
+        qDebug() << "Connexion limite terminée";
 
-    // Connexions réseau
-    connect(m_networkManager, &NetworkManager::messageReceived, this, &MainWindow::onMessageReceived);
-    connect(m_networkManager, &NetworkManager::clientConnected, this, &MainWindow::onClientConnected);
-    connect(m_networkManager, &NetworkManager::clientDisconnected, this, &MainWindow::onClientDisconnected);
-    connect(m_networkManager, &NetworkManager::connectionEstablished, this, &MainWindow::onConnectionEstablished);
-    connect(m_networkManager, &NetworkManager::connectionLost, this, &MainWindow::onConnectionLost);
-    connect(m_networkManager, &NetworkManager::errorOccurred, this, &MainWindow::onNetworkError);
+        // Connexions réseau
+        qDebug() << "Début connexions réseau...";
+        connect(m_networkManager, &NetworkManager::messageReceived, this, &MainWindow::onMessageReceived);
+        connect(m_networkManager, &NetworkManager::clientConnected, this, &MainWindow::onClientConnected);
+        connect(m_networkManager, &NetworkManager::clientDisconnected, this, &MainWindow::onClientDisconnected);
+        connect(m_networkManager, &NetworkManager::connectionEstablished, this, &MainWindow::onConnectionEstablished);
+        connect(m_networkManager, &NetworkManager::connectionLost, this, &MainWindow::onConnectionLost);
+        connect(m_networkManager, &NetworkManager::errorOccurred, this, &MainWindow::onNetworkError);
+        qDebug() << "Connexions réseau terminées";
 
-    // Configuration de la fenêtre principale
-    setWindowTitle("Collaborative Drum Machine");
-    setWindowIcon(QIcon(":/icons/logo.png"));
+        // Configuration de la fenêtre principale
+        qDebug() << "Configuration fenêtre principale...";
+        setWindowTitle("Collaborative Drum Machine");
+        setWindowIcon(QIcon(":/icons/logo.png"));
+        setMinimumSize(1000, 700);
+        resize(1200, 800);
+        qDebug() << "Configuration fenêtre terminée";
 
-    // Taille minimale et par défaut
-    setMinimumSize(1000, 700);
-    resize(1200, 800);
+        // Centrer la fenêtre
+        qDebug() << "Centrage fenêtre...";
+        centerWindow();
+        qDebug() << "Centrage terminé";
 
-    // Centrer la fenêtre
-    centerWindow();
+        // Configuration de l'interface
+        qDebug() << "Début connectSignals()...";
+        connectSignals();
+        qDebug() << "connectSignals() terminé";
 
-    // Configuration de l'interface
-    connectSignals();
-    applyModernStyle();
+        qDebug() << "Début applyModernStyle()...";
+        applyModernStyle();
+        qDebug() << "applyModernStyle() terminé";
 
-    // Configuration audio
-    m_audioEngine->loadSamples();
+        // Configuration audio
+        qDebug() << "Chargement samples audio...";
+        m_audioEngine->loadSamples();
+        qDebug() << "Samples audio chargés";
 
-    // NE PAS démarrer le serveur automatiquement ici
-    // Le serveur sera démarré quand l'utilisateur choisit "Héberger"
-    if (m_networkManager->getClient()) {
-        connect(m_networkManager->getClient(), &DrumClient::gridCellUpdated,
-                m_drumGrid, &DrumGrid::applyGridUpdate, Qt::UniqueConnection);
+        // Configuration client
+        qDebug() << "Configuration client réseau...";
+        if (m_networkManager->getClient()) {
+            connect(m_networkManager->getClient(), &DrumClient::gridCellUpdated,
+                    m_drumGrid, &DrumGrid::applyGridUpdate, Qt::UniqueConnection);
+            qDebug() << "Client réseau configuré";
+        } else {
+            qDebug() << "Pas de client réseau disponible";
+        }
+
+        // État initial
+        qDebug() << "Basculement vers lobby...";
+        switchToLobbyMode();
+        qDebug() << "Lobby activé";
+
+        qDebug() << "Mise à jour status réseau...";
+        updateNetworkStatus();
+        qDebug() << "Status réseau mis à jour";
+
+        qDebug() << "=== CONSTRUCTION MAINWINDOW TERMINEE AVEC SUCCES ===";
+
+    } catch (const std::exception& e) {
+        qDebug() << "EXCEPTION dans MainWindow:" << e.what();
+        throw;
+    } catch (...) {
+        qDebug() << "EXCEPTION INCONNUE dans MainWindow";
+        throw;
     }
-    // État initial
-    switchToLobbyMode();
-    updateNetworkStatus();
 }
+
 
 void MainWindow::startServer() {
     if (m_networkManager->startServer(8888)) {
@@ -213,122 +314,180 @@ void MainWindow::centerWindow() {
 }
 
 void MainWindow::setupUI() {
-    // Widget central avec style moderne
-    QWidget* centralWidget = new QWidget(this);
-    centralWidget->setObjectName("centralWidget");
-    setCentralWidget(centralWidget);
+    qDebug() << "setupUI() - début";
 
-    // Layout principal
-    QVBoxLayout* mainLayout = new QVBoxLayout(centralWidget);
-    mainLayout->setContentsMargins(0, 0, 0, 0);
-    mainLayout->setSpacing(0);
+    try {
+        // Widget central
+        qDebug() << "Création widget central...";
+        QWidget* centralWidget = new QWidget(this);
+        centralWidget->setObjectName("centralWidget");
+        setCentralWidget(centralWidget);
+        qDebug() << "Widget central créé";
 
-    // Header avec logo et titre
-    QWidget* headerWidget = createHeaderWidget();
-    mainLayout->addWidget(headerWidget);
+        // Layout principal
+        qDebug() << "Création layout principal...";
+        QVBoxLayout* mainLayout = new QVBoxLayout(centralWidget);
+        mainLayout->setContentsMargins(0, 0, 0, 0);
+        mainLayout->setSpacing(0);
+        qDebug() << "Layout principal créé";
 
-    // Contenu principal
-    m_stackedWidget->setObjectName("stackedWidget");
+        // Header
+        qDebug() << "Début createHeaderWidget()...";
+        QWidget* headerWidget = createHeaderWidget();
+        qDebug() << "createHeaderWidget() terminé";
 
-    // Page lobby
-    QWidget* lobbyPage = createLobbyPage();
-    m_stackedWidget->addWidget(lobbyPage);
+        qDebug() << "Ajout header au layout...";
+        mainLayout->addWidget(headerWidget);
+        qDebug() << "Header ajouté";
 
-    // Page de jeu
-    QWidget* gamePage = createGamePage();
-    m_stackedWidget->addWidget(gamePage);
+        // Stacked widget pour les pages
+        qDebug() << "Configuration stackedWidget...";
+        m_stackedWidget->setObjectName("stackedWidget");
+        qDebug() << "StackedWidget configuré";
 
-    mainLayout->addWidget(m_stackedWidget);
+        // Créer les pages
+        qDebug() << "Début createLobbyPage()...";
+        QWidget* lobbyPage = createLobbyPage();
+        qDebug() << "createLobbyPage() terminé";
 
-    // Configuration initiale
-    m_roomListWidget->setCurrentUser(m_currentUserId, m_currentUserName);
-    m_userListWidget->setCurrentUser(m_currentUserId);
+        qDebug() << "Début createGamePage()...";
+        QWidget* gamePage = createGamePage();
+        qDebug() << "createGamePage() terminé";
+
+        qDebug() << "Ajout pages au stackedWidget...";
+        m_stackedWidget->addWidget(lobbyPage);
+        m_stackedWidget->addWidget(gamePage);
+        qDebug() << "Pages ajoutées";
+
+        qDebug() << "Ajout stackedWidget au layout principal...";
+        mainLayout->addWidget(m_stackedWidget);
+        qDebug() << "StackedWidget ajouté";
+
+        // Configuration initiale
+        qDebug() << "Configuration initiale widgets...";
+        if (m_roomListWidget) {
+            qDebug() << "Configuration RoomListWidget...";
+            m_roomListWidget->setCurrentUser(m_currentUserId, m_currentUserName);
+            qDebug() << "RoomListWidget configuré";
+        }
+        if (m_userListWidget) {
+            qDebug() << "Configuration UserListWidget...";
+            m_userListWidget->setCurrentUser(m_currentUserId);
+            qDebug() << "UserListWidget configuré";
+        }
+
+        qDebug() << "setupUI() - fin avec succès";
+
+    } catch (const std::exception& e) {
+        qDebug() << "EXCEPTION dans setupUI():" << e.what();
+        throw;
+    } catch (...) {
+        qDebug() << "EXCEPTION INCONNUE dans setupUI()";
+        throw;
+    }
 }
+
+
 
 QWidget* MainWindow::createHeaderWidget() {
-    QWidget* header = new QWidget(this);
-    header->setObjectName("headerWidget");
-    header->setFixedHeight(80);
+    qDebug() << "createHeaderWidget() - début";
 
-    QHBoxLayout* headerLayout = new QHBoxLayout(header);
-    headerLayout->setContentsMargins(20, 10, 20, 10);
+    try {
+        qDebug() << "Création widget header...";
+        QWidget* header = new QWidget(this);
+        if (!header) {
+            qDebug() << "ERREUR: Échec création header widget";
+            return nullptr;
+        }
+        qDebug() << "Header widget créé";
 
-    // Logo
-    QLabel* logoLabel = new QLabel(this);
-    logoLabel->setObjectName("logoLabel");
+        qDebug() << "Configuration ObjectName...";
+        header->setObjectName("headerWidget");
+        qDebug() << "ObjectName configuré";
 
-    QString logoPath = QCoreApplication::applicationDirPath() + "../icons/logo.png";
-    if (!QFile::exists(logoPath)) {
-        logoPath = QCoreApplication::applicationDirPath() + "/../icons/logo.png";
-    }
+        qDebug() << "Configuration taille fixe...";
+        header->setFixedHeight(80);
+        qDebug() << "Taille fixe configurée";
 
-    QPixmap logo(logoPath);
-    if (!logo.isNull()) {
-        logoLabel->setPixmap(logo.scaled(60, 60, Qt::KeepAspectRatio, Qt::SmoothTransformation));
-    } else {
-        logoLabel->setText("🥁");
-        logoLabel->setStyleSheet(R"(
-            font-size: 40px;
-            background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
-                stop:0 #3b82f6, stop:1 #8b5cf6);
-            border-radius: 30px;
-            padding: 10px;
-        )");
-        logoLabel->setAlignment(Qt::AlignCenter);
+        qDebug() << "Création layout header...";
+        QHBoxLayout* headerLayout = new QHBoxLayout(header);
+        if (!headerLayout) {
+            qDebug() << "ERREUR: Échec création headerLayout";
+            return nullptr;
+        }
+        qDebug() << "HeaderLayout créé";
+
+        qDebug() << "Configuration marges layout...";
+        headerLayout->setContentsMargins(20, 10, 20, 10);
+        qDebug() << "Marges configurées";
+
+        // Logo
+        qDebug() << "Création logoLabel...";
+        QLabel* logoLabel = new QLabel(this);
+        if (!logoLabel) {
+            qDebug() << "ERREUR: Échec création logoLabel";
+            return nullptr;
+        }
+        qDebug() << "LogoLabel créé";
+
+        qDebug() << "Configuration logoLabel...";
+        logoLabel->setObjectName("logoLabel");
         logoLabel->setFixedSize(60, 60);
+        logoLabel->setScaledContents(true);
+        qDebug() << "LogoLabel configuré";
+
+        // Titre
+        qDebug() << "Création titleLabel...";
+        QLabel* titleLabel = new QLabel("BeeBee", this);
+        if (!titleLabel) {
+            qDebug() << "ERREUR: Échec création titleLabel";
+            return nullptr;
+        }
+        qDebug() << "TitleLabel créé";
+
+        qDebug() << "Configuration titleLabel...";
+        titleLabel->setObjectName("titleLabel");
+        qDebug() << "TitleLabel configuré";
+
+        // Status réseau
+        qDebug() << "Création networkStatusLabel...";
+        m_networkStatusLabel = new QLabel("Déconnecté", this);
+        if (!m_networkStatusLabel) {
+            qDebug() << "ERREUR: Échec création networkStatusLabel";
+            return nullptr;
+        }
+        qDebug() << "NetworkStatusLabel créé";
+
+        qDebug() << "Configuration networkStatusLabel...";
+        m_networkStatusLabel->setObjectName("networkStatusLabel");
+        m_networkStatusLabel->setAlignment(Qt::AlignRight);
+        qDebug() << "NetworkStatusLabel configuré";
+
+        qDebug() << "Ajout widgets au layout...";
+        headerLayout->addWidget(logoLabel);
+        qDebug() << "LogoLabel ajouté";
+
+        headerLayout->addWidget(titleLabel);
+        qDebug() << "TitleLabel ajouté";
+
+        headerLayout->addStretch();
+        qDebug() << "Stretch ajouté";
+
+        headerLayout->addWidget(m_networkStatusLabel);
+        qDebug() << "NetworkStatusLabel ajouté";
+
+        qDebug() << "createHeaderWidget() - fin avec succès";
+        return header;
+
+    } catch (const std::exception& e) {
+        qDebug() << "EXCEPTION dans createHeaderWidget():" << e.what();
+        return nullptr;
+    } catch (...) {
+        qDebug() << "EXCEPTION INCONNUE dans createHeaderWidget()";
+        return nullptr;
     }
-
-    QLabel* titleLabel = new QLabel("BeeBee", this);
-    titleLabel->setObjectName("titleLabel");
-
-    m_networkStatusLabel = new QLabel("Déconnecté", this);
-    m_networkStatusLabel->setObjectName("networkStatusLabel");
-    m_networkStatusLabel->setAlignment(Qt::AlignRight);
-
-    headerLayout->addWidget(logoLabel);
-    headerLayout->addWidget(titleLabel);
-    headerLayout->addStretch();
-    headerLayout->addWidget(m_networkStatusLabel);
-
-    // Connexions réseau
-    connect(m_startServerBtn, &QPushButton::clicked, this, &MainWindow::onStartServerClicked);
-    connect(m_connectBtn, &QPushButton::clicked, this, &MainWindow::onConnectToServerClicked);
-    connect(m_disconnectBtn, &QPushButton::clicked, this, &MainWindow::onDisconnectClicked);
-    connect(m_userNameEdit, &QLineEdit::textChanged, [this](const QString &text)
-            { m_currentUserName = text.isEmpty() ? "Joueur" : text; });
-
-    // Page lobby
-    QWidget *lobbyPage = new QWidget(this);
-    QVBoxLayout *lobbyLayout = new QVBoxLayout(lobbyPage);
-
-    m_networkGroup = new QGroupBox("Connexion réseau", this);
-    QVBoxLayout* networkLayout = new QVBoxLayout(m_networkGroup);
-    networkLayout->addWidget(m_userNameEdit);
-    networkLayout->addWidget(m_startServerBtn);
-    networkLayout->addWidget(m_connectBtn);
-    networkLayout->addWidget(m_disconnectBtn);
-    lobbyLayout->addWidget(m_networkGroup);
-
-    QHBoxLayout *roomsLayout = new QHBoxLayout();
-    roomsLayout->addWidget(m_roomListWidget, 2);
-    roomsLayout->addWidget(m_userListWidget, 1);
-    lobbyLayout->addLayout(roomsLayout);
-
-    // Page de jeu
-    QWidget *gamePage = new QWidget(this);
-    QHBoxLayout *gameLayout = new QHBoxLayout(gamePage);
-
-    // Panneau de gauche (contrôles)
-    QWidget *controlPanel = new QWidget(this);
-    QVBoxLayout *controlLayout = new QVBoxLayout(controlPanel);
-    controlPanel->setMaximumWidth(250);
-
-    // Contrôles de lecture
-    QGroupBox *playGroup = new QGroupBox("Lecture", this);
-    QVBoxLayout *playLayout = new QVBoxLayout(playGroup);
-
-    return header;
 }
+
 
 QWidget* MainWindow::createLobbyPage() {
     QWidget* lobbyPage = new QWidget(this);
