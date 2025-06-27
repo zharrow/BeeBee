@@ -16,6 +16,7 @@ enum class MessageType {
     LEAVE_ROOM,
     ROOM_LIST_REQUEST,
     ROOM_LIST_RESPONSE,
+    ROOM_INFO_REQUEST,
     ROOM_INFO,
     USER_JOINED,
     USER_LEFT,
@@ -69,6 +70,7 @@ class Protocol {
 public:
     static QByteArray createMessage(MessageType type, const QJsonObject& data);
     static bool parseMessage(const QByteArray& data, MessageType& type, QJsonObject& content);
+    static QByteArray createRoomInfoRequestMessage(const QJsonObject& data);
 
     // Messages de rooms
     static QByteArray createCreateRoomMessage(const QString& name, const QString& password, int maxUsers);
@@ -81,6 +83,7 @@ public:
     static QByteArray createUserLeftMessage(const QString& userId);
     static QByteArray createHostChangedMessage(const QString& oldHostId, const QString& newHostId);
     static QByteArray createErrorMessage(const QString& error);
+    static QByteArray createJoinRoomMessage(const QString& roomId, const QString& userId, const QString& userName, const QString& password);
 
     // Messages existants
     static QByteArray createJoinMessage(const QString& userName);

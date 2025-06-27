@@ -5,16 +5,19 @@
 #include <QStringList>
 #include <QJsonObject>
 #include <QDateTime>
+#include <QJsonArray>
+#include <QList>
 #include <QColor>
 #include <QMap>
+#include <qjsonarray.h>
 
 struct User {
     QString id;
     QString name;
-    QColor color;
     bool isHost;
-    QDateTime joinTime;
     bool isOnline;
+    QDateTime joinTime;
+    QColor color;
 
     QJsonObject toJson() const {
         QJsonObject obj;
@@ -31,11 +34,21 @@ struct User {
         User user;
         user.id = obj["id"].toString();
         user.name = obj["name"].toString();
-        user.color = QColor(obj["color"].toString());
         user.isHost = obj["isHost"].toBool();
+        user.isOnline = obj["isOnline"].toBool();
         user.joinTime = QDateTime::fromString(obj["joinTime"].toString(), Qt::ISODate);
-        user.isOnline = obj["isOnline"].toBool(true);
+        user.color = QColor(obj["color"].toString());
         return user;
+    }
+
+    // Utilitaire statique pour convertir un QJsonArray en QList<User>
+    static QList<User> listFromJson(const QJsonArray& array) {
+        QList<User> users;
+        for (const QJsonValue& value : array) {
+            if (value.isObject())
+                users.append(User::fromJson(value.toObject()));
+        }
+        return users;
     }
 };
 

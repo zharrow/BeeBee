@@ -45,6 +45,7 @@ private slots:
 private:
     QMap<QString, Room*> m_rooms;
     QTimer* m_cleanupTimer;
+    quint32 m_id;
 
     QString generateRoomId() const;
 };

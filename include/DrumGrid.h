@@ -53,6 +53,9 @@ private slots:
     void onCellClicked(int row, int column);
     void onStepTimer();
 
+public slots:
+    void applyGridUpdate(const GridCell& cell);
+
 private:
     void updateCellAppearance(int row, int col);
     void highlightCurrentStep();

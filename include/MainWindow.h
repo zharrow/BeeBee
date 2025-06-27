@@ -33,6 +33,9 @@ class MainWindow : public QMainWindow {
 public:
     explicit MainWindow(QWidget* parent = nullptr);
     ~MainWindow();
+public slots:
+    void startServer();
+    void onMessageReceived(const QByteArray& message);
 
     void createConnectionDialog();
 
@@ -63,7 +66,7 @@ private slots:
     void onStartServerClicked();
     void onConnectToServerClicked();
     void onDisconnectClicked();
-    void onMessageReceived(const QByteArray& message);
+
     void onClientConnected(const QString& clientId);
     void onClientDisconnected(const QString& clientId);
     void onConnectionEstablished();
@@ -76,7 +79,9 @@ private slots:
 private:
     // Méthodes de configuration UI
     void setupUI();
-    void setupMenus();  // Ajout de la déclaration manquante
+    void setupMenus();
+    void onRoomStateReceived(const QJsonObject& roomInfo);
+
     void setupToolbar();
     void setupStatusBar();
     void connectSignals();
@@ -97,6 +102,8 @@ private:
     QLineEdit* createStyledLineEdit(const QString& placeholder, const QString& text);
     QSpinBox* createStyledSpinBox(int min, int max, int value);
     QPushButton* createStyledButton(const QString& text, const QString& style);
+
+    void onRoomListReceived(const QJsonArray& roomsArray);
 
     // Méthodes utilitaires
     void updatePlayButton();
