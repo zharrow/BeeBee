@@ -257,10 +257,7 @@ QWidget* MainWindow::createHeaderWidget() {
     QLabel* logoLabel = new QLabel(this);
     logoLabel->setObjectName("logoLabel");
 
-    // Construire le chemin absolu vers le logo
     QString logoPath = QCoreApplication::applicationDirPath() + "../icons/logo.png";
-
-    // Si on est dans le dossier build, essayer aussi le dossier parent
     if (!QFile::exists(logoPath)) {
         logoPath = QCoreApplication::applicationDirPath() + "/../icons/logo.png";
     }
@@ -269,24 +266,21 @@ QWidget* MainWindow::createHeaderWidget() {
     if (!logo.isNull()) {
         logoLabel->setPixmap(logo.scaled(60, 60, Qt::KeepAspectRatio, Qt::SmoothTransformation));
     } else {
-        // Logo de secours avec emoji musical
         logoLabel->setText("🥁");
         logoLabel->setStyleSheet(R"(
-        font-size: 40px;
-        background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
-            stop:0 #3b82f6, stop:1 #8b5cf6);
-        border-radius: 30px;
-        padding: 10px;
-    )");
+            font-size: 40px;
+            background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+                stop:0 #3b82f6, stop:1 #8b5cf6);
+            border-radius: 30px;
+            padding: 10px;
+        )");
         logoLabel->setAlignment(Qt::AlignCenter);
         logoLabel->setFixedSize(60, 60);
     }
 
-    // Titre
     QLabel* titleLabel = new QLabel("BeeBee", this);
     titleLabel->setObjectName("titleLabel");
 
-    // Statut de connexion
     m_networkStatusLabel = new QLabel("Déconnecté", this);
     m_networkStatusLabel->setObjectName("networkStatusLabel");
     m_networkStatusLabel->setAlignment(Qt::AlignRight);
@@ -306,6 +300,13 @@ QWidget* MainWindow::createHeaderWidget() {
     // Page lobby
     QWidget *lobbyPage = new QWidget(this);
     QVBoxLayout *lobbyLayout = new QVBoxLayout(lobbyPage);
+
+    m_networkGroup = new QGroupBox("Connexion réseau", this);
+    QVBoxLayout* networkLayout = new QVBoxLayout(m_networkGroup);
+    networkLayout->addWidget(m_userNameEdit);
+    networkLayout->addWidget(m_startServerBtn);
+    networkLayout->addWidget(m_connectBtn);
+    networkLayout->addWidget(m_disconnectBtn);
     lobbyLayout->addWidget(m_networkGroup);
 
     QHBoxLayout *roomsLayout = new QHBoxLayout();
@@ -325,6 +326,7 @@ QWidget* MainWindow::createHeaderWidget() {
     // Contrôles de lecture
     QGroupBox *playGroup = new QGroupBox("Lecture", this);
     QVBoxLayout *playLayout = new QVBoxLayout(playGroup);
+
     return header;
 }
 
@@ -451,6 +453,9 @@ QWidget* MainWindow::createGamePage() {
     gridLayout->addWidget(m_drumGrid);
 
     QHBoxLayout *playBtnLayout = new QHBoxLayout();
+    QGroupBox* playGroup = new QGroupBox("Lecture", this);
+    QVBoxLayout* playLayout = new QVBoxLayout(playGroup);
+
     playBtnLayout->addWidget(m_playPauseBtn);
     playBtnLayout->addWidget(m_stopBtn);
     playLayout->addLayout(playBtnLayout);
@@ -480,6 +485,8 @@ QWidget* MainWindow::createGamePage() {
     QGroupBox *gridControlGroup = new QGroupBox("Grille", this);
     QVBoxLayout *gridControlLayout = new QVBoxLayout(gridControlGroup);
     gameLayout->addWidget(gridContainer, 1);
+    gridControlLayout->addWidget(playGroup);
+
 
     return gamePage;
 }
@@ -682,11 +689,10 @@ void MainWindow::onRoomListReceived(const QJsonArray& roomsArray) {
 
 void MainWindow::setupMenus() {
   
-  QMenuBar *menuBar = this->menuBar();
     // Menu Fichier
     QMenu* fileMenu = menuBar()->addMenu("&Fichier");
 
-  fileMenu->addAction("&Nouveau", QKeySequence::New, [this]() { /* TODO */ });
+    fileMenu->addAction("&Nouveau", QKeySequence::New, [this]() { /* TODO */ });
     fileMenu->addAction("&Ouvrir", QKeySequence::Open, [this]() { /* TODO */ });
     fileMenu->addAction("&Sauvegarder", QKeySequence::Save, [this]() { /* TODO */ });
     fileMenu->addSeparator();
@@ -946,9 +952,14 @@ void MainWindow::switchToLobbyMode() {
         onRefreshRoomsRequested();
     });
 
-    } else if (m_networkManager->isServerRunning()) {
+    if (m_networkManager->isServerRunning()) {
         // En tant que serveur, afficher nos propres salons
-        m_roomListWidget->updateRoomList(m_roomManager->getAllRooms());
+        QJsonArray roomsArray;
+        for (Room* room : m_roomManager->getAllRooms()) {
+            roomsArray.append(room->toJson());
+        }
+        m_roomListWidget->updateRoomList(roomsArray);
+
     }
 
     // Animation de transition

@@ -130,8 +130,11 @@ private:
     QPushButton* m_stopBtn;
     QSpinBox* m_tempoSpin;
     QSlider* m_volumeSlider;
+    QLabel* m_tempoLabel;
+    QLabel* m_volumeLabel;
 
     // Contrôles réseau
+    QGroupBox* m_networkGroup;
     QPushButton* m_startServerBtn;
     QPushButton* m_connectBtn;
     QPushButton* m_disconnectBtn;

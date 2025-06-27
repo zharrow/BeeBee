@@ -145,9 +145,12 @@ void RoomListWidget::updateRoomList(const QJsonArray& roomsArray) {
         } else {
 
             item->setForeground(QColor(226, 232, 240)); // Couleur claire pour le thème sombre
+            QString hostName = obj["hostName"].toString(); // ou autre champ existant
+            QString createdTime = QDateTime::fromString(obj["createdTime"].toString(), Qt::ISODate).toString("hh:mm:ss");
+
             item->setToolTip(QString("Hôte: %1\nCréé: %2")
-                                 .arg(room->getUser(room->getHostId()).name)
-                                 .arg(room->getCreatedTime().toString("hh:mm:ss")));
+                                 .arg(hostName)
+                                 .arg(createdTime));
 
         }
 
