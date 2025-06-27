@@ -14,6 +14,9 @@
 #include <QMenuBar>
 #include <QToolBar>
 #include <QGridLayout>
+#include <QDesktopServices>
+#include <QCoreApplication>
+#include <QUrl>
 #include "DrumGrid.h"
 #include "AudioEngine.h"
 #include "NetworkManager.h"
@@ -34,6 +37,8 @@ public slots:
     void startServer();
     void onMessageReceived(const QByteArray& message);
 
+    void createConnectionDialog();
+
 private slots:
     // Contrôles audio
     void onPlayPauseClicked();
@@ -43,6 +48,7 @@ private slots:
     void onAddColumnClicked();
     void onRemoveColumnClicked();
     void onStepCountChanged(int newCount);
+    void reloadAudioSamples();
 
     // Grille
     void onGridCellClicked(int row, int col, bool active);
@@ -67,16 +73,39 @@ private slots:
     void onConnectionLost();
     void onNetworkError(const QString& error);
 
+    // Méthode Utilitaire
+    void centerWindow();
+
 private:
+    // Méthodes de configuration UI
     void setupUI();
     void setupMenus();
     void onRoomStateReceived(const QJsonObject& roomInfo);
+
     void setupToolbar();
     void setupStatusBar();
-    void createConnectionDialog();
+    void connectSignals();
+    void applyModernStyle();
+    void cleanupConnections();
+
+    // Création des éléments UI
+    QWidget* createHeaderWidget();
+    QWidget* createLobbyPage();
+    QWidget* createGamePage();
+    QWidget* createConnectionCard();
+    QWidget* createRoomsPanel();
+    QWidget* createUsersPanel();
+    QWidget* createControlPanel();
+    QWidget* createPlaybackCard();
+
+    // Helpers pour créer des widgets stylisés
+    QLineEdit* createStyledLineEdit(const QString& placeholder, const QString& text);
+    QSpinBox* createStyledSpinBox(int min, int max, int value);
+    QPushButton* createStyledButton(const QString& text, const QString& style);
 
     void onRoomListReceived(const QJsonArray& roomsArray);
 
+    // Méthodes utilitaires
     void updatePlayButton();
     void updateNetworkStatus();
     void updateRoomDisplay();
@@ -101,11 +130,8 @@ private:
     QPushButton* m_stopBtn;
     QSpinBox* m_tempoSpin;
     QSlider* m_volumeSlider;
-    QLabel* m_tempoLabel;
-    QLabel* m_volumeLabel;
 
     // Contrôles réseau
-    QGroupBox* m_networkGroup;
     QPushButton* m_startServerBtn;
     QPushButton* m_connectBtn;
     QPushButton* m_disconnectBtn;
@@ -121,8 +147,9 @@ private:
     QString m_currentRoomId;
     bool m_inGameMode;
 
-    // Nouveaux widgets pour les contrôles de colonnes
+    // Widgets pour les contrôles de colonnes et instruments
     QPushButton* m_addColumnBtn;
     QPushButton* m_removeColumnBtn;
     QLabel* m_stepCountLabel;
+    QLabel* m_instrumentCountLabel;
 };

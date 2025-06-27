@@ -9,38 +9,19 @@
 #include <QAudioDevice>
 #include <QMediaPlayer>
 #include <QAudioOutput>
-
+#include <QDebug>
 
 int main(int argc, char *argv[]) {
-
-
-    // Dans main(), avant de créer MainWindow :
-    qDebug() << "=== Test Audio ===";
-  //  qDebug() << "Supported audio codecs:" << QMediaFormat().supportedAudioCodecs(QMediaFormat::Decode);
-
-    auto devices = QMediaDevices::audioOutputs();
-    qDebug() << "Audio output devices:" << devices.size();
-    for (const QAudioDevice &device : devices) {
-        qDebug() << " -" << device.description();
-    }
-
-
-   // connect(player, &QMediaPlayer::positionChanged, this, &MediaExample::positionChanged);
-
-
-    // Test direct
-    QSoundEffect testSound;
-    testSound.setSource(QUrl::fromLocalFile("samples/kick.wav"));
-    if (testSound.status() == QSoundEffect::Error) {
-        qWarning() << "Erreur de chargement du fichier de test";
-    }
     QApplication app(argc, argv);
 
-    // Configuration de l'application
-    app.setApplicationName("DrumBox Multiplayer");
-    app.setApplicationVersion("2.0");
-    app.setOrganizationName("Student Project");
-    app.setOrganizationDomain("drumbox.local");
+    // Métadonnées de l'application
+    app.setApplicationName("BeeBee");
+    // app.setApplicationDisplayName("BeeBee - Collab' Drum Machine");
+    app.setApplicationVersion("1.0.0");
+    app.setOrganizationName("BeTeam");
+
+    // Icône par défaut pour toutes les fenêtres
+    app.setWindowIcon(QIcon(":../resources/icons/logo.png"));
 
 // Style moderne pour Windows
 #ifdef Q_OS_WIN
@@ -50,9 +31,28 @@ int main(int argc, char *argv[]) {
     // Configuration des ressources
     QDir::setCurrent(QApplication::applicationDirPath());
 
+    // Tests audio (optionnels, peuvent être commentés en production)
+    qDebug() << "=== Test Audio ===";
+
+    auto devices = QMediaDevices::audioOutputs();
+    qDebug() << "Audio output devices:" << devices.size();
+    for (const QAudioDevice &device : devices) {
+        qDebug() << " -" << device.description();
+    }
+
+    // Test de chargement d'un fichier audio
+    QSoundEffect testSound;
+    testSound.setSource(QUrl::fromLocalFile("samples/kick.wav"));
+    if (testSound.status() == QSoundEffect::Error) {
+        qWarning() << "Erreur de chargement du fichier de test";
+    } else {
+        qDebug() << "Test audio: fichier chargé avec succès";
+    }
+
     // Créer et afficher la fenêtre principale
     MainWindow window;
     window.show();
 
+    // Lancer la boucle d'événements
     return app.exec();
 }

@@ -72,6 +72,12 @@ else()
     message(STATUS "Dossier samples non trouvé - mode silencieux activé")
 endif()
 
+# Après la ligne qui copie les samples, ajoutez :
+if(EXISTS "${CMAKE_SOURCE_DIR}/icons")
+    file(COPY "${CMAKE_SOURCE_DIR}/icons" DESTINATION "${CMAKE_BINARY_DIR}")
+    message(STATUS "Dossier icons copié")
+endif()
+
 # Configuration debug/release
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
     target_compile_definitions(DrumBoxMultiplayer PRIVATE DEBUG_MODE)

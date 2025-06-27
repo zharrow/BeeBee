@@ -35,6 +35,7 @@ private slots:
 
 private:
     void setupUI();
+    QPushButton* createModernButton(const QString& text, const QString& color, const QString& hoverColor);
 
     QListWidget* m_roomList;
     QPushButton* m_createRoomBtn;

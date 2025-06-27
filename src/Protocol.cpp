@@ -158,6 +158,14 @@ QByteArray Protocol::createErrorMessage(const QString& error) {
     return createMessage(MessageType::ERROR_MESSAGE, data);
 }
 
+// Méthode pour synchroniser les instruments
+QByteArray Protocol::createInstrumentSyncMessage(const QStringList& instrumentNames) {
+    QJsonObject data;
+    data["instrumentNames"] = QJsonArray::fromStringList(instrumentNames);
+    data["instrumentCount"] = instrumentNames.size();
+    return createMessage(MessageType::INSTRUMENT_SYNC, data);
+}
+
 QString Protocol::messageTypeToString(MessageType type) {
     switch (type) {
     case MessageType::CREATE_ROOM: return "CREATE_ROOM";
@@ -175,6 +183,7 @@ QString Protocol::messageTypeToString(MessageType type) {
     case MessageType::PLAY_STATE: return "PLAY_STATE";
     case MessageType::SYNC_REQUEST: return "SYNC_REQUEST";
     case MessageType::SYNC_RESPONSE: return "SYNC_RESPONSE";
+    case MessageType::INSTRUMENT_SYNC: return "INSTRUMENT_SYNC";
     case MessageType::CHAT_MESSAGE: return "CHAT_MESSAGE";
     case MessageType::USER_INFO: return "USER_INFO";
     case MessageType::ERROR_MESSAGE: return "ERROR_MESSAGE";
@@ -198,6 +207,7 @@ MessageType Protocol::stringToMessageType(const QString& str) {
     if (str == "PLAY_STATE") return MessageType::PLAY_STATE;
     if (str == "SYNC_REQUEST") return MessageType::SYNC_REQUEST;
     if (str == "SYNC_RESPONSE") return MessageType::SYNC_RESPONSE;
+    if (str == "INSTRUMENT_SYNC") return MessageType::INSTRUMENT_SYNC;
     if (str == "CHAT_MESSAGE") return MessageType::CHAT_MESSAGE;
     if (str == "USER_INFO") return MessageType::USER_INFO;
     if (str == "ERROR_MESSAGE") return MessageType::ERROR_MESSAGE;
