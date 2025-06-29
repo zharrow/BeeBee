@@ -5,6 +5,8 @@
 #include <QTableWidgetItem>
 #include <QJsonArray>
 #include <QScrollBar>
+#include <QRandomGenerator>
+
 
 DrumGrid::DrumGrid(QWidget* parent)
     : QWidget(parent)
@@ -41,9 +43,20 @@ DrumGrid::DrumGrid(QWidget* parent)
     setInstrumentNames(defaultNames);
 }
 
-void DrumGrid::applyGridUpdate(const GridCell& cell)
-{
+void DrumGrid::applyGridUpdate(const GridCell& cell) {
+    // Appliquer la mise à jour de la cellule
     setCellActive(cell.row, cell.col, cell.active, cell.userId);
+
+    // Si la cellule appartient à un autre utilisateur, définir sa couleur si nécessaire
+    if (!cell.userId.isEmpty() && !m_userColors.contains(cell.userId)) {
+        // Générer une couleur aléatoire pour cet utilisateur
+        QColor userColor = QColor::fromHsv(
+            QRandomGenerator::global()->bounded(360),
+            200 + QRandomGenerator::global()->bounded(56),
+            200 + QRandomGenerator::global()->bounded(56)
+            );
+        setUserColor(cell.userId, userColor);
+    }
 }
 
 void DrumGrid::setupGrid(int instruments, int steps) {
@@ -473,3 +486,5 @@ void DrumGrid::updateCellAppearance(int row, int col) {
         item->setText("");
     }
 }
+
+

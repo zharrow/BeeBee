@@ -14,9 +14,8 @@
 #include <QMenuBar>
 #include <QToolBar>
 #include <QGridLayout>
-#include <QDesktopServices>
-#include <QCoreApplication>
-#include <QUrl>
+#include <QJsonArray>
+#include <QJsonObject>
 #include "DrumGrid.h"
 #include "AudioEngine.h"
 #include "NetworkManager.h"
@@ -33,9 +32,6 @@ class MainWindow : public QMainWindow {
 public:
     explicit MainWindow(QWidget* parent = nullptr);
     ~MainWindow();
-public slots:
-    void startServer();
-    void onMessageReceived(const QByteArray& message);
 
     void createConnectionDialog();
 
@@ -48,7 +44,6 @@ private slots:
     void onAddColumnClicked();
     void onRemoveColumnClicked();
     void onStepCountChanged(int newCount);
-    void reloadAudioSamples();
 
     // Grille
     void onGridCellClicked(int row, int col, bool active);
@@ -61,17 +56,23 @@ private slots:
     void onRefreshRoomsRequested();
     void onKickUserRequested(const QString& userId);
     void onTransferHostRequested(const QString& userId);
+    void onRoomListReceived(const QJsonArray& roomsArray);
+    void onRoomStateReceived(const QJsonObject& roomInfo);
 
     // Réseau
     void onStartServerClicked();
     void onConnectToServerClicked();
     void onDisconnectClicked();
-
+    void onMessageReceived(const QByteArray& message);
     void onClientConnected(const QString& clientId);
     void onClientDisconnected(const QString& clientId);
     void onConnectionEstablished();
     void onConnectionLost();
     void onNetworkError(const QString& error);
+
+    // Actions supplémentaires
+    void reloadAudioSamples();
+    void startServer();
 
     // Méthode Utilitaire
     void centerWindow();
@@ -80,8 +81,6 @@ private:
     // Méthodes de configuration UI
     void setupUI();
     void setupMenus();
-    void onRoomStateReceived(const QJsonObject& roomInfo);
-
     void setupToolbar();
     void setupStatusBar();
     void connectSignals();
@@ -102,8 +101,6 @@ private:
     QLineEdit* createStyledLineEdit(const QString& placeholder, const QString& text);
     QSpinBox* createStyledSpinBox(int min, int max, int value);
     QPushButton* createStyledButton(const QString& text, const QString& style);
-
-    void onRoomListReceived(const QJsonArray& roomsArray);
 
     // Méthodes utilitaires
     void updatePlayButton();
@@ -130,11 +127,8 @@ private:
     QPushButton* m_stopBtn;
     QSpinBox* m_tempoSpin;
     QSlider* m_volumeSlider;
-    QLabel* m_tempoLabel;
-    QLabel* m_volumeLabel;
 
     // Contrôles réseau
-    QGroupBox* m_networkGroup;
     QPushButton* m_startServerBtn;
     QPushButton* m_connectBtn;
     QPushButton* m_disconnectBtn;
@@ -143,16 +137,17 @@ private:
     QLineEdit* m_userNameEdit;
     QLabel* m_networkStatusLabel;
 
+    // Contrôles de colonnes
+    QPushButton* m_addColumnBtn;
+    QPushButton* m_removeColumnBtn;
+    QLabel* m_stepCountLabel;
+    QLabel* m_instrumentCountLabel;
+
     // État
     bool m_isPlaying;
     QString m_currentUserId;
     QString m_currentUserName;
     QString m_currentRoomId;
+    QString m_currentRoomName;
     bool m_inGameMode;
-
-    // Widgets pour les contrôles de colonnes et instruments
-    QPushButton* m_addColumnBtn;
-    QPushButton* m_removeColumnBtn;
-    QLabel* m_stepCountLabel;
-    QLabel* m_instrumentCountLabel;
 };
