@@ -10,6 +10,7 @@
 #include <QColor>
 #include <QMap>
 #include <qjsonarray.h>
+#include "GridState.h"
 
 struct User {
     QString id;
@@ -96,6 +97,9 @@ public:
     QJsonObject toJson() const;
     static Room* fromJson(const QJsonObject& obj, QObject* parent = nullptr);
 
+    // Accéder à la grille de la room
+    GridState* grid() const { return m_grid; }
+
 signals:
     void userJoined(const User& user);
     void userLeft(const QString& userId);
@@ -110,6 +114,7 @@ private:
     int m_maxUsers;
     QDateTime m_createdTime;
     QMap<QString, User> m_users;
+    GridState* m_grid;
 
     QColor generateUserColor() const;
 };

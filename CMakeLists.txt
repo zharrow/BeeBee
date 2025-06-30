@@ -46,7 +46,8 @@ set(HEADERS
 )
 
 # Exécutable
-add_executable(DrumBoxMultiplayer ${SOURCES} ${HEADERS})
+add_executable(DrumBoxMultiplayer ${SOURCES} ${HEADERS}
+    include/gridstate.h include/gridstate.cpp)
 
 # Répertoires d'inclusion
 target_include_directories(DrumBoxMultiplayer PRIVATE include)

@@ -12,6 +12,7 @@ Room::Room(const QString& id, const QString& name, const QString& hostId, QObjec
     , m_maxUsers(4)
     , m_createdTime(QDateTime::currentDateTime())
 {
+    m_grid = new GridState();
 }
 
 bool Room::addUser(const User& user) {
@@ -180,4 +181,8 @@ Room* Room::fromJson(const QJsonObject& obj, QObject* parent) {
     }
 
     return room;
+}
+
+Room::~Room() {
+    delete m_grid;
 }
