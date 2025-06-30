@@ -158,24 +158,47 @@ void DrumGrid::resizeGridForInstruments() {
     updateTableSize();
 }
 
-void DrumGrid::addColumn()
-{
-    if (m_steps < MAX_STEPS) {
-        m_steps++;
-        updateTableSize();
-        emit stepCountChanged(m_steps);
-        emit columnCountChanged(m_steps); // AJOUTER CETTE LIGNE
+void DrumGrid::addColumn() {
+    if (m_steps >= MAX_STEPS) return;
+
+    m_steps++;
+    m_table->setColumnCount(m_steps);
+
+    // Ajouter l'en-tête de la nouvelle colonne
+    m_table->setHorizontalHeaderItem(m_steps - 1, new QTableWidgetItem(QString::number(m_steps)));
+
+    // Initialiser les cellules de la nouvelle colonne
+    for (int row = 0; row < m_instruments; ++row) {
+        QTableWidgetItem* item = new QTableWidgetItem("");
+        item->setFlags(Qt::ItemIsEnabled);
+        item->setTextAlignment(Qt::AlignCenter);
+        m_table->setItem(row, m_steps - 1, item);
+        updateCellAppearance(row, m_steps - 1);
     }
+
+    updateTableSize();
+    emit stepCountChanged(m_steps);
 }
 
-void DrumGrid::removeColumn()
-{
-    if (m_steps > MIN_STEPS) {
-        m_steps--;
-        updateTableSize();
-        emit stepCountChanged(m_steps);
-        emit columnCountChanged(m_steps); // AJOUTER CETTE LIGNE
+void DrumGrid::removeColumn() {
+    if (m_steps <= MIN_STEPS) return;
+
+    // Supprimer les états des cellules de la dernière colonne
+    for (int row = 0; row < m_instruments; ++row) {
+        QPair<int, int> key(row, m_steps - 1);
+        m_cellStates.remove(key);
     }
+
+    m_steps--;
+    m_table->setColumnCount(m_steps);
+
+    // Si le step actuel est au-delà de la nouvelle limite, le réinitialiser
+    if (m_currentStep >= m_steps) {
+        m_currentStep = 0;
+    }
+
+    updateTableSize();
+    emit stepCountChanged(m_steps);
 }
 
 void DrumGrid::setStepCount(int steps) {
