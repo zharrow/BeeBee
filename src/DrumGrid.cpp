@@ -178,7 +178,9 @@ void DrumGrid::addColumn() {
 
     updateTableSize();
     emit stepCountChanged(m_steps);
+    emit columnCountChanged(m_steps); // SIGNAL POUR SYNCHRONISATION RÉSEAU
 }
+
 
 void DrumGrid::removeColumn() {
     if (m_steps <= MIN_STEPS) return;
@@ -199,7 +201,9 @@ void DrumGrid::removeColumn() {
 
     updateTableSize();
     emit stepCountChanged(m_steps);
+    emit columnCountChanged(m_steps); // SIGNAL POUR SYNCHRONISATION RÉSEAU
 }
+
 
 void DrumGrid::setStepCount(int steps) {
     int newSteps = qBound(MIN_STEPS, steps, MAX_STEPS);
@@ -219,6 +223,8 @@ void DrumGrid::setStepCount(int steps) {
 }
 
 void DrumGrid::updateTableSize() {
+    if (!m_table) return;
+
     // Calculer la taille optimale de la table
     int tableWidth = m_table->verticalHeader()->width() +
                      m_table->horizontalHeader()->length() +
@@ -236,7 +242,13 @@ void DrumGrid::updateTableSize() {
                    m_table->frameWidth() * 2 + 20; // +20 pour la scrollbar
 
     setMinimumWidth(minWidth);
+
+    // FORCER LE REDESSIN pour les modifications réseau
+    m_table->updateGeometry();
+    m_table->viewport()->update();
+    update();
 }
+
 
 void DrumGrid::highlightCurrentStep() {
     // Mise à jour de l'en-tête de colonne pour montrer le step actuel
