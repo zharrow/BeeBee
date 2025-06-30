@@ -35,6 +35,14 @@ MainWindow::MainWindow(QWidget *parent)
     , m_stackedWidget(nullptr)
     , m_isPlaying(false)
     , m_inGameMode(false)
+    , m_playPauseBtn(nullptr)  // Initialisation explicite
+    , m_stopBtn(nullptr)       // Initialisation explicite
+    , m_tempoSpin(nullptr)
+    , m_volumeSlider(nullptr)
+    , m_addColumnBtn(nullptr)
+    , m_removeColumnBtn(nullptr)
+    , m_stepCountLabel(nullptr)
+    , m_instrumentCountLabel(nullptr)
 {
     qDebug() << "=== DEBUT CONSTRUCTION MAINWINDOW ===";
 
@@ -119,7 +127,7 @@ MainWindow::MainWindow(QWidget *parent)
         m_audioEngine->setMaxInstruments(0); // 0 = illimité
         qDebug() << "AudioEngine configuré";
 
-        // Connexions audio
+        // Connexions audio - APRÈS création des boutons
         qDebug() << "Début connexions audio...";
         connect(m_drumGrid, &DrumGrid::stepTriggered, this, [this](int step, const QList<int> &instruments) {
             m_audioEngine->playMultipleInstruments(instruments);
@@ -591,6 +599,47 @@ QWidget* MainWindow::createUsersPanel() {
     return panel;
 }
 
+// Ajoutez ces méthodes à la fin de votre MainWindow.cpp
+
+void MainWindow::setupMenus() {
+    // Menu Fichier
+    QMenu* fileMenu = menuBar()->addMenu("&Fichier");
+    fileMenu->addAction("&Nouveau", QKeySequence::New, [this]() { /* TODO */ });
+    fileMenu->addAction("&Ouvrir", QKeySequence::Open, [this]() { /* TODO */ });
+    fileMenu->addAction("&Sauvegarder", QKeySequence::Save, [this]() { /* TODO */ });
+    fileMenu->addSeparator();
+    fileMenu->addAction("&Quitter", QKeySequence::Quit, this, &QWidget::close);
+
+    // Menu Audio
+    QMenu* audioMenu = menuBar()->addMenu("&Audio");
+    audioMenu->addAction("&Recharger les samples", this, &MainWindow::reloadAudioSamples);
+}
+
+void MainWindow::setupStatusBar() {
+    statusBar()->setObjectName("statusBar");
+    statusBar()->showMessage("Bienvenue dans DrumBox Multiplayer !");
+}
+
+void MainWindow::onRoomListReceived(const QJsonArray& roomsArray) {
+    qDebug() << "[MAINWINDOW] Room list received:" << roomsArray.size();
+    if (m_roomListWidget) {
+        m_roomListWidget->updateRoomList(roomsArray);
+    }
+}
+
+void MainWindow::onRoomStateReceived(const QJsonObject& roomInfo) {
+    m_currentRoomId = roomInfo["id"].toString();
+    if (m_userListWidget) {
+        m_userListWidget->setCurrentRoom(m_currentRoomId, roomInfo["name"].toString());
+        m_userListWidget->updateUserList(User::listFromJson(roomInfo["users"].toArray()));
+    }
+    switchToGameMode();
+    if (roomInfo.contains("grid") && m_drumGrid) {
+        m_drumGrid->setGridState(roomInfo["grid"].toObject());
+    }
+    statusBar()->showMessage(QString("Rejoint le salon '%1'").arg(roomInfo["name"].toString()));
+}
+
 QWidget* MainWindow::createGamePage() {
     QWidget* gamePage = new QWidget(this);
     gamePage->setObjectName("gamePage");
@@ -608,44 +657,11 @@ QWidget* MainWindow::createGamePage() {
     gridContainer->setObjectName("gridContainer");
     QVBoxLayout* gridLayout = new QVBoxLayout(gridContainer);
     gridLayout->setContentsMargins(20, 20, 20, 20);
+
     m_drumGrid->setObjectName("drumGrid");
     gridLayout->addWidget(m_drumGrid);
 
-    QHBoxLayout *playBtnLayout = new QHBoxLayout();
-    QGroupBox* playGroup = new QGroupBox("Lecture", this);
-    QVBoxLayout* playLayout = new QVBoxLayout(playGroup);
-
-    playBtnLayout->addWidget(m_playPauseBtn);
-    playBtnLayout->addWidget(m_stopBtn);
-    playLayout->addLayout(playBtnLayout);
-
-    // Tempo
-    QHBoxLayout *tempoLayout = new QHBoxLayout();
-    m_tempoLabel = new QLabel("Tempo:", this);
-    m_tempoSpin = new QSpinBox(this);
-    m_tempoSpin->setRange(60, 200);
-    m_tempoSpin->setValue(120);
-    m_tempoSpin->setSuffix(" BPM");
-    tempoLayout->addWidget(m_tempoLabel);
-    tempoLayout->addWidget(m_tempoSpin);
-    playLayout->addLayout(tempoLayout);
-
-    // Volume
-    QHBoxLayout *volumeLayout = new QHBoxLayout();
-    m_volumeLabel = new QLabel("Volume:", this);
-    m_volumeSlider = new QSlider(Qt::Horizontal, this);
-    m_volumeSlider->setRange(0, 100);
-    m_volumeSlider->setValue(70);
-    volumeLayout->addWidget(m_volumeLabel);
-    volumeLayout->addWidget(m_volumeSlider);
-    playLayout->addLayout(volumeLayout);
-
-    // Contrôles pour les colonnes
-    QGroupBox *gridControlGroup = new QGroupBox("Grille", this);
-    QVBoxLayout *gridControlLayout = new QVBoxLayout(gridControlGroup);
     gameLayout->addWidget(gridContainer, 1);
-    gridControlLayout->addWidget(playGroup);
-
 
     return gamePage;
 }
@@ -665,22 +681,52 @@ QWidget* MainWindow::createControlPanel() {
 
     // Contrôles pour la grille
     QGroupBox* gridControlGroup = new QGroupBox("Grille", this);
+    gridControlGroup->setStyleSheet(R"(
+        QGroupBox {
+            font-weight: bold;
+            color: #e2e8f0;
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            margin-top: 10px;
+            padding-top: 10px;
+        }
+        QGroupBox::title {
+            subcontrol-origin: margin;
+            left: 10px;
+            padding: 0 5px 0 5px;
+        }
+    )");
+
     QVBoxLayout* gridControlLayout = new QVBoxLayout(gridControlGroup);
-  
+    gridControlLayout->setContentsMargins(15, 15, 15, 15);
+    gridControlLayout->setSpacing(15);
+
     // Contrôles de colonnes
     QHBoxLayout *columnLayout = new QHBoxLayout();
     QLabel *columnLabel = new QLabel("Colonnes:", this);
+    columnLabel->setStyleSheet("color: #e2e8f0; font-weight: bold;");
+
     m_removeColumnBtn = new QPushButton("-", this);
-    m_removeColumnBtn->setMaximumWidth(30);
+    m_removeColumnBtn->setObjectName("columnControlBtn");
+    m_removeColumnBtn->setMaximumWidth(40);
+    m_removeColumnBtn->setMaximumHeight(30);
     m_removeColumnBtn->setToolTip("Enlever une colonne");
 
     m_stepCountLabel = new QLabel("16", this);
     m_stepCountLabel->setAlignment(Qt::AlignCenter);
-    m_stepCountLabel->setMinimumWidth(30);
-    m_stepCountLabel->setStyleSheet("font-weight: bold;");
+    m_stepCountLabel->setMinimumWidth(40);
+    m_stepCountLabel->setStyleSheet(R"(
+        font-weight: bold;
+        color: #3b82f6;
+        background: rgba(59, 130, 246, 0.1);
+        border-radius: 5px;
+        padding: 5px;
+    )");
 
     m_addColumnBtn = new QPushButton("+", this);
-    m_addColumnBtn->setMaximumWidth(30);
+    m_addColumnBtn->setObjectName("columnControlBtn");
+    m_addColumnBtn->setMaximumWidth(40);
+    m_addColumnBtn->setMaximumHeight(30);
     m_addColumnBtn->setToolTip("Ajouter une colonne");
 
     columnLayout->addWidget(columnLabel);
@@ -694,10 +740,18 @@ QWidget* MainWindow::createControlPanel() {
     // Affichage du nombre d'instruments
     QHBoxLayout* instrumentLayout = new QHBoxLayout();
     QLabel* instrumentLabel = new QLabel("Instruments:", this);
+    instrumentLabel->setStyleSheet("color: #e2e8f0; font-weight: bold;");
+
     m_instrumentCountLabel = new QLabel("8", this);
     m_instrumentCountLabel->setAlignment(Qt::AlignCenter);
-    m_instrumentCountLabel->setMinimumWidth(30);
-    m_instrumentCountLabel->setStyleSheet("font-weight: bold; color: #2E8B57;");
+    m_instrumentCountLabel->setMinimumWidth(40);
+    m_instrumentCountLabel->setStyleSheet(R"(
+        font-weight: bold;
+        color: #10b981;
+        background: rgba(16, 185, 129, 0.1);
+        border-radius: 5px;
+        padding: 5px;
+    )");
 
     instrumentLayout->addWidget(instrumentLabel);
     instrumentLayout->addWidget(m_instrumentCountLabel);
@@ -725,6 +779,7 @@ QWidget* MainWindow::createPlaybackCard() {
 
     QLabel* titleLabel = new QLabel("Contrôles", this);
     titleLabel->setObjectName("cardTitle");
+    titleLabel->setStyleSheet("color: #ffffff; font-size: 18px; font-weight: bold; margin-bottom: 10px;");
     layout->addWidget(titleLabel);
 
     // Boutons de lecture
@@ -738,6 +793,7 @@ QWidget* MainWindow::createPlaybackCard() {
     // Tempo
     QHBoxLayout* tempoLayout = new QHBoxLayout();
     QLabel* tempoLabel = new QLabel("Tempo:", this);
+    tempoLabel->setStyleSheet("color: #e2e8f0; font-weight: bold;");
     m_tempoSpin = createStyledSpinBox(60, 200, 120);
     m_tempoSpin->setSuffix(" BPM");
     tempoLayout->addWidget(tempoLabel);
@@ -747,6 +803,7 @@ QWidget* MainWindow::createPlaybackCard() {
     // Volume
     QHBoxLayout* volumeLayout = new QHBoxLayout();
     QLabel* volumeLabel = new QLabel("Volume:", this);
+    volumeLabel->setStyleSheet("color: #e2e8f0; font-weight: bold;");
     m_volumeSlider = new QSlider(Qt::Horizontal, this);
     m_volumeSlider->setObjectName("volumeSlider");
     m_volumeSlider->setRange(0, 100);
@@ -790,37 +847,50 @@ void MainWindow::connectSignals() {
         m_currentUserName = text.isEmpty() ? "Joueur" : text;
     });
 
-    // Connexions pour les boutons de colonnes
-    connect(m_addColumnBtn, &QPushButton::clicked, this, &MainWindow::onAddColumnClicked);
-    connect(m_removeColumnBtn, &QPushButton::clicked, this, &MainWindow::onRemoveColumnClicked);
-    connect(m_drumGrid, &DrumGrid::stepCountChanged, this, &MainWindow::onStepCountChanged);
+    // Connexions pour les boutons de colonnes - VÉRIFIER EXISTENCE
+    if (m_addColumnBtn && m_removeColumnBtn) {
+        connect(m_addColumnBtn, &QPushButton::clicked, this, &MainWindow::onAddColumnClicked);
+        connect(m_removeColumnBtn, &QPushButton::clicked, this, &MainWindow::onRemoveColumnClicked);
+    }
+
+    if (m_drumGrid) {
+        connect(m_drumGrid, &DrumGrid::stepCountChanged, this, &MainWindow::onStepCountChanged);
+    }
 
     // Connexion pour mettre à jour l'affichage du nombre d'instruments avec limite
-    connect(m_drumGrid, &DrumGrid::instrumentCountChanged, this, [this](int newCount) {
-        m_instrumentCountLabel->setText(QString::number(newCount));
+    if (m_drumGrid && m_instrumentCountLabel) {
+        connect(m_drumGrid, &DrumGrid::instrumentCountChanged, this, [this](int newCount) {
+            m_instrumentCountLabel->setText(QString::number(newCount));
 
-        int maxInstruments = m_audioEngine->getMaxInstruments();
-        QString limitInfo = (maxInstruments == 0) ? "illimitée" : QString("max: %1").arg(maxInstruments);
-        m_instrumentCountLabel->setToolTip(QString("Instruments: %1 (%2)").arg(newCount).arg(limitInfo));
-    });
+            int maxInstruments = m_audioEngine->getMaxInstruments();
+            QString limitInfo = (maxInstruments == 0) ? "illimitée" : QString("max: %1").arg(maxInstruments);
+            m_instrumentCountLabel->setToolTip(QString("Instruments: %1 (%2)").arg(newCount).arg(limitInfo));
+        });
+    }
 
-    // Connexions audio
-    connect(m_playPauseBtn, &QPushButton::clicked, this, &MainWindow::onPlayPauseClicked);
-    connect(m_stopBtn, &QPushButton::clicked, this, &MainWindow::onStopClicked);
-    connect(m_tempoSpin, QOverload<int>::of(&QSpinBox::valueChanged), this, &MainWindow::onTempoChanged);
-    connect(m_volumeSlider, &QSlider::valueChanged, this, &MainWindow::onVolumeChanged);
+    // Connexions audio - VÉRIFIER EXISTENCE DES BOUTONS
+    if (m_playPauseBtn && m_stopBtn && m_tempoSpin && m_volumeSlider) {
+        connect(m_playPauseBtn, &QPushButton::clicked, this, &MainWindow::onPlayPauseClicked);
+        connect(m_stopBtn, &QPushButton::clicked, this, &MainWindow::onStopClicked);
+        connect(m_tempoSpin, QOverload<int>::of(&QSpinBox::valueChanged), this, &MainWindow::onTempoChanged);
+        connect(m_volumeSlider, &QSlider::valueChanged, this, &MainWindow::onVolumeChanged);
+    }
 
     // Connexions room list
-    connect(m_roomListWidget, &RoomListWidget::createRoomRequested, this, &MainWindow::onCreateRoomRequested);
-    connect(m_roomListWidget, &RoomListWidget::joinRoomRequested, this, &MainWindow::onJoinRoomRequested);
-    connect(m_roomListWidget, &RoomListWidget::refreshRequested, this, &MainWindow::onRefreshRoomsRequested);
-  
+    if (m_roomListWidget) {
+        connect(m_roomListWidget, &RoomListWidget::createRoomRequested, this, &MainWindow::onCreateRoomRequested);
+        connect(m_roomListWidget, &RoomListWidget::joinRoomRequested, this, &MainWindow::onJoinRoomRequested);
+        connect(m_roomListWidget, &RoomListWidget::refreshRequested, this, &MainWindow::onRefreshRoomsRequested);
+    }
+
     // Connexions user list
-    connect(m_userListWidget, &UserListWidget::leaveRoomRequested, this, &MainWindow::onLeaveRoomRequested);
-    connect(m_userListWidget, &UserListWidget::kickUserRequested, this, &MainWindow::onKickUserRequested);
-    connect(m_userListWidget, &UserListWidget::transferHostRequested, this, &MainWindow::onTransferHostRequested);
-  
-    if (m_networkManager->getClient()) {
+    if (m_userListWidget) {
+        connect(m_userListWidget, &UserListWidget::leaveRoomRequested, this, &MainWindow::onLeaveRoomRequested);
+        connect(m_userListWidget, &UserListWidget::kickUserRequested, this, &MainWindow::onKickUserRequested);
+        connect(m_userListWidget, &UserListWidget::transferHostRequested, this, &MainWindow::onTransferHostRequested);
+    }
+
+    if (m_networkManager && m_networkManager->getClient()) {
         connect(m_networkManager->getClient(), &DrumClient::roomStateReceived,
                 this, &MainWindow::onRoomStateReceived);
     }
@@ -828,99 +898,6 @@ void MainWindow::connectSignals() {
     // Titre de la fenêtre
     setWindowTitle("DrumBox Multiplayer - Lobby");
     resize(1200, 700);
-}
-
-void MainWindow::onRoomStateReceived(const QJsonObject& roomInfo) {
-    m_currentRoomId = roomInfo["id"].toString();
-    m_userListWidget->setCurrentRoom(m_currentRoomId, roomInfo["name"].toString());
-    m_userListWidget->updateUserList(User::listFromJson(roomInfo["users"].toArray()));
-    switchToGameMode();
-    if (roomInfo.contains("grid")) {
-        m_drumGrid->setGridState(roomInfo["grid"].toObject());
-    }
-    statusBar()->showMessage(QString("Rejoint le salon '%1'").arg(roomInfo["name"].toString()));
-}
-
-void MainWindow::onRoomListReceived(const QJsonArray& roomsArray) {
-    qDebug() << "[MAINWINDOW] Room list received:" << roomsArray.size();
-    m_roomListWidget->updateRoomList(roomsArray);
-}
-
-void MainWindow::setupMenus() {
-  
-    // Menu Fichier
-    QMenu* fileMenu = menuBar()->addMenu("&Fichier");
-
-    fileMenu->addAction("&Nouveau", QKeySequence::New, [this]() { /* TODO */ });
-    fileMenu->addAction("&Ouvrir", QKeySequence::Open, [this]() { /* TODO */ });
-    fileMenu->addAction("&Sauvegarder", QKeySequence::Save, [this]() { /* TODO */ });
-    fileMenu->addSeparator();
-    fileMenu->addAction("&Quitter", QKeySequence::Quit, this, &QWidget::close);
-
-    // Menu Audio avec gestion des limites
-    QMenu* audioMenu = menuBar()->addMenu("&Audio");
-    audioMenu->addAction("&Recharger les samples", this, &MainWindow::reloadAudioSamples);
-    audioMenu->addSeparator();
-    audioMenu->addAction("&Ouvrir dossier samples", [this]() {
-        QString samplesPath = QCoreApplication::applicationDirPath() + "/samples";
-        QDesktopServices::openUrl(QUrl::fromLocalFile(samplesPath));
-    });
-
-    audioMenu->addSeparator();
-
-    QAction* setLimitAction = audioMenu->addAction("&Définir limite d'instruments");
-    connect(setLimitAction, &QAction::triggered, [this]() {
-        bool ok;
-        int currentLimit = m_audioEngine->getMaxInstruments();
-        QString currentText = (currentLimit == 0) ? "Illimité" : QString::number(currentLimit);
-
-        int newLimit = QInputDialog::getInt(this, "Limite d'instruments",
-                                            QString("Limite actuelle: %1\n\nNouvelle limite (0 = illimité):").arg(currentText),
-                                            currentLimit, 0, 1000, 1, &ok);
-        if (ok) {
-            m_audioEngine->setMaxInstruments(newLimit);
-            reloadAudioSamples();
-
-            QString message = (newLimit == 0) ? "Limite supprimée - Tous les instruments seront chargés"
-                                              : QString("Limite définie à %1 instruments").arg(newLimit);
-            statusBar()->showMessage(message, 3000);
-        }
-    });
-
-    QAction* showStatsAction = audioMenu->addAction("&Statistiques des instruments");
-    connect(showStatsAction, &QAction::triggered, [this]() {
-        int currentCount = m_audioEngine->getInstrumentCount();
-        int currentLimit = m_audioEngine->getMaxInstruments();
-        QString limitText = (currentLimit == 0) ? "Illimitée" : QString::number(currentLimit);
-
-        // Compter les fichiers dans le dossier samples
-        QString samplesPath = QCoreApplication::applicationDirPath() + "/samples";
-        QDir samplesDir(samplesPath);
-        QStringList filters = {"*.wav", "*.mp3", "*.ogg", "*.flac", "*.aac", "*.m4a"};
-        int totalFiles = samplesDir.entryList(filters, QDir::Files).size();
-
-        QString stats = QString("Statistiques des instruments:\n\n"
-                                "Instruments chargés: %1\n"
-                                "Fichiers audio détectés: %2\n"
-                                "Limite actuelle: %3\n"
-                                "Dossier samples: %4")
-                            .arg(currentCount)
-                            .arg(totalFiles)
-                            .arg(limitText)
-                            .arg(samplesPath);
-
-        QMessageBox::information(this, "Statistiques", stats);
-    });
-}
-
-void MainWindow::setupToolbar() {
-    // Pas de toolbar dans cette version moderne
-}
-
-void MainWindow::setupStatusBar() {
-    statusBar()->setObjectName("statusBar");
-    statusBar()->showMessage("Bienvenue dans DrumBox Multiplayer !");
-    // statusBar()->showMessage("Bienvenue dans BeeBee - Collaborative Drum Machine !");
 }
 
 void MainWindow::applyModernStyle() {
@@ -1036,6 +1013,25 @@ void MainWindow::applyModernStyle() {
             cursor: not-allowed;
         }
 
+        /* Boutons de contrôle des colonnes */
+        #columnControlBtn {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 6px;
+            color: #e2e8f0;
+            font-weight: bold;
+            font-size: 16px;
+        }
+
+        #columnControlBtn:hover {
+            background: rgba(255, 255, 255, 0.2);
+            border-color: #3b82f6;
+        }
+
+        #columnControlBtn:pressed {
+            background: rgba(59, 130, 246, 0.3);
+        }
+
         /* Slider */
         #volumeSlider::groove:horizontal {
             background: rgba(255, 255, 255, 0.1);
@@ -1088,7 +1084,6 @@ void MainWindow::applyModernStyle() {
 
     setStyleSheet(styleSheet);
 }
-
 void MainWindow::cleanupConnections() {
     if (m_networkManager->isServerRunning()) {
         m_networkManager->stopServer();
