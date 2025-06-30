@@ -6,16 +6,8 @@
 #include <QJsonArray>
 #include <QScrollBar>
 
-DrumGrid::DrumGrid(QWidget* parent)
-    : QWidget(parent)
-    , m_table(new QTableWidget(this))
-    , m_scrollArea(new QScrollArea(this))
-    , m_stepTimer(new QTimer(this))
-    , m_instruments(8)
-    , m_steps(DEFAULT_STEPS)
-    , m_currentStep(0)
-    , m_tempo(120)
-    , m_playing(false)
+DrumGrid::DrumGrid(QWidget *parent)
+    : QWidget(parent), m_table(new QTableWidget(this)), m_scrollArea(new QScrollArea(this)), m_stepTimer(new QTimer(this)), m_instruments(8), m_steps(DEFAULT_STEPS), m_currentStep(0), m_tempo(120), m_playing(false)
 {
     setupGrid();
 
@@ -25,7 +17,7 @@ DrumGrid::DrumGrid(QWidget* parent)
     m_scrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
     m_scrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
 
-    QVBoxLayout* layout = new QVBoxLayout(this);
+    QVBoxLayout *layout = new QVBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);
     layout->addWidget(m_scrollArea);
 
@@ -41,12 +33,13 @@ DrumGrid::DrumGrid(QWidget* parent)
     setInstrumentNames(defaultNames);
 }
 
-void DrumGrid::applyGridUpdate(const GridCell& cell)
+void DrumGrid::applyGridUpdate(const GridCell &cell)
 {
     setCellActive(cell.row, cell.col, cell.active, cell.userId);
 }
 
-void DrumGrid::setupGrid(int instruments, int steps) {
+void DrumGrid::setupGrid(int instruments, int steps)
+{
     m_instruments = qBound(MIN_INSTRUMENTS, instruments, MAX_INSTRUMENTS);
     m_steps = qBound(MIN_STEPS, steps, MAX_STEPS);
     m_cellStates.clear();
@@ -90,14 +83,17 @@ void DrumGrid::setupGrid(int instruments, int steps) {
     m_table->setSelectionMode(QAbstractItemView::NoSelection);
 
     // Headers des colonnes (numéros des steps)
-    for (int col = 0; col < m_steps; ++col) {
+    for (int col = 0; col < m_steps; ++col)
+    {
         m_table->setHorizontalHeaderItem(col, new QTableWidgetItem(QString::number(col + 1)));
     }
 
     // Initialisation des cellules
-    for (int row = 0; row < m_instruments; ++row) {
-        for (int col = 0; col < m_steps; ++col) {
-            QTableWidgetItem* item = new QTableWidgetItem("");
+    for (int row = 0; row < m_instruments; ++row)
+    {
+        for (int col = 0; col < m_steps; ++col)
+        {
+            QTableWidgetItem *item = new QTableWidgetItem("");
             item->setFlags(Qt::ItemIsEnabled);
             item->setTextAlignment(Qt::AlignCenter);
             m_table->setItem(row, col, item);
@@ -109,38 +105,49 @@ void DrumGrid::setupGrid(int instruments, int steps) {
     emit instrumentCountChanged(m_instruments);
 }
 
-void DrumGrid::setInstrumentCount(int instrumentCount) {
+void DrumGrid::setInstrumentCount(int instrumentCount)
+{
     int newCount = qBound(MIN_INSTRUMENTS, instrumentCount, MAX_INSTRUMENTS);
-    if (newCount == m_instruments) return;
+    if (newCount == m_instruments)
+        return;
 
     m_instruments = newCount;
     resizeGridForInstruments();
     emit instrumentCountChanged(m_instruments);
 }
 
-void DrumGrid::resizeGridForInstruments() {
+void DrumGrid::resizeGridForInstruments()
+{
     // Sauvegarder l'état actuel des cellules pour les instruments existants
-    QMap<QPair<int,int>, QPair<bool,QString>> oldStates = m_cellStates;
+    QMap<QPair<int, int>, QPair<bool, QString>> oldStates = m_cellStates;
 
     // Redimensionner la table
     m_table->setRowCount(m_instruments);
 
     // Nettoyer les états des cellules pour les lignes supprimées
-    if (m_instruments < m_table->rowCount()) {
-        for (auto it = m_cellStates.begin(); it != m_cellStates.end();) {
-            if (it.key().first >= m_instruments) {
+    if (m_instruments < m_table->rowCount())
+    {
+        for (auto it = m_cellStates.begin(); it != m_cellStates.end();)
+        {
+            if (it.key().first >= m_instruments)
+            {
                 it = m_cellStates.erase(it);
-            } else {
+            }
+            else
+            {
                 ++it;
             }
         }
     }
 
     // Initialiser les nouvelles cellules
-    for (int row = 0; row < m_instruments; ++row) {
-        for (int col = 0; col < m_steps; ++col) {
-            if (!m_table->item(row, col)) {
-                QTableWidgetItem* item = new QTableWidgetItem("");
+    for (int row = 0; row < m_instruments; ++row)
+    {
+        for (int col = 0; col < m_steps; ++col)
+        {
+            if (!m_table->item(row, col))
+            {
+                QTableWidgetItem *item = new QTableWidgetItem("");
                 item->setFlags(Qt::ItemIsEnabled);
                 item->setTextAlignment(Qt::AlignCenter);
                 m_table->setItem(row, col, item);
@@ -150,7 +157,8 @@ void DrumGrid::resizeGridForInstruments() {
     }
 
     // Mettre à jour les headers verticaux avec les noms d'instruments
-    for (int i = 0; i < m_instruments; ++i) {
+    for (int i = 0; i < m_instruments; ++i)
+    {
         QString name = (i < m_instrumentNames.size()) ? m_instrumentNames[i] : QString("Instrument %1").arg(i + 1);
         m_table->setVerticalHeaderItem(i, new QTableWidgetItem(name));
     }
@@ -158,8 +166,10 @@ void DrumGrid::resizeGridForInstruments() {
     updateTableSize();
 }
 
-void DrumGrid::addColumn() {
-    if (m_steps >= MAX_STEPS) return;
+void DrumGrid::addColumn()
+{
+    if (m_steps >= MAX_STEPS)
+        return;
 
     m_steps++;
     m_table->setColumnCount(m_steps);
@@ -168,8 +178,9 @@ void DrumGrid::addColumn() {
     m_table->setHorizontalHeaderItem(m_steps - 1, new QTableWidgetItem(QString::number(m_steps)));
 
     // Initialiser les cellules de la nouvelle colonne
-    for (int row = 0; row < m_instruments; ++row) {
-        QTableWidgetItem* item = new QTableWidgetItem("");
+    for (int row = 0; row < m_instruments; ++row)
+    {
+        QTableWidgetItem *item = new QTableWidgetItem("");
         item->setFlags(Qt::ItemIsEnabled);
         item->setTextAlignment(Qt::AlignCenter);
         m_table->setItem(row, m_steps - 1, item);
@@ -177,14 +188,18 @@ void DrumGrid::addColumn() {
     }
 
     updateTableSize();
+    emit columnCountChanged(m_steps); // AJOUTER CETTE LIGNE
     emit stepCountChanged(m_steps);
 }
 
-void DrumGrid::removeColumn() {
-    if (m_steps <= MIN_STEPS) return;
+void DrumGrid::removeColumn()
+{
+    if (m_steps <= MIN_STEPS)
+        return;
 
     // Supprimer les états des cellules de la dernière colonne
-    for (int row = 0; row < m_instruments; ++row) {
+    for (int row = 0; row < m_instruments; ++row)
+    {
         QPair<int, int> key(row, m_steps - 1);
         m_cellStates.remove(key);
     }
@@ -193,32 +208,42 @@ void DrumGrid::removeColumn() {
     m_table->setColumnCount(m_steps);
 
     // Si le step actuel est au-delà de la nouvelle limite, le réinitialiser
-    if (m_currentStep >= m_steps) {
+    if (m_currentStep >= m_steps)
+    {
         m_currentStep = 0;
     }
 
     updateTableSize();
+    emit columnCountChanged(m_steps); // AJOUTER CETTE LIGNE
     emit stepCountChanged(m_steps);
 }
 
-void DrumGrid::setStepCount(int steps) {
+void DrumGrid::setStepCount(int steps)
+{
     int newSteps = qBound(MIN_STEPS, steps, MAX_STEPS);
-    if (newSteps == m_steps) return;
+    if (newSteps == m_steps)
+        return;
 
-    if (newSteps > m_steps) {
+    if (newSteps > m_steps)
+    {
         // Ajouter des colonnes
-        while (m_steps < newSteps) {
+        while (m_steps < newSteps)
+        {
             addColumn();
         }
-    } else {
+    }
+    else
+    {
         // Enlever des colonnes
-        while (m_steps > newSteps) {
+        while (m_steps > newSteps)
+        {
             removeColumn();
         }
     }
 }
 
-void DrumGrid::updateTableSize() {
+void DrumGrid::updateTableSize()
+{
     // Calculer la taille optimale de la table
     int tableWidth = m_table->verticalHeader()->width() +
                      m_table->horizontalHeader()->length() +
@@ -238,32 +263,43 @@ void DrumGrid::updateTableSize() {
     setMinimumWidth(minWidth);
 }
 
-void DrumGrid::highlightCurrentStep() {
+void DrumGrid::highlightCurrentStep()
+{
     // Mise à jour de l'en-tête de colonne pour montrer le step actuel
-    for (int col = 0; col < m_steps; ++col) {
-        QTableWidgetItem* header = m_table->horizontalHeaderItem(col);
-        if (header) {
-            if (col == m_currentStep && m_playing) {
+    for (int col = 0; col < m_steps; ++col)
+    {
+        QTableWidgetItem *header = m_table->horizontalHeaderItem(col);
+        if (header)
+        {
+            if (col == m_currentStep && m_playing)
+            {
                 header->setBackground(QBrush(QColor(239, 68, 68)));
                 header->setForeground(Qt::white);
 
                 // Animer les cellules actives du step courant
-                for (int row = 0; row < m_instruments; ++row) {
-                    if (isCellActive(row, col)) {
-                        QTableWidgetItem* item = m_table->item(row, col);
-                        if (item) {
+                for (int row = 0; row < m_instruments; ++row)
+                {
+                    if (isCellActive(row, col))
+                    {
+                        QTableWidgetItem *item = m_table->item(row, col);
+                        if (item)
+                        {
                             item->setFont(QFont("Arial", 20, QFont::Bold));
                         }
                     }
                 }
-            } else {
+            }
+            else
+            {
                 header->setBackground(QBrush());
                 header->setForeground(QColor(226, 232, 240));
 
                 // Restaurer la taille normale
-                for (int row = 0; row < m_instruments; ++row) {
-                    QTableWidgetItem* item = m_table->item(row, col);
-                    if (item && !item->text().isEmpty()) {
+                for (int row = 0; row < m_instruments; ++row)
+                {
+                    QTableWidgetItem *item = m_table->item(row, col);
+                    if (item && !item->text().isEmpty())
+                    {
                         item->setFont(QFont("Arial", 16, QFont::Bold));
                     }
                 }
@@ -272,62 +308,78 @@ void DrumGrid::highlightCurrentStep() {
     }
 }
 
-void DrumGrid::setInstrumentNames(const QStringList& names) {
+void DrumGrid::setInstrumentNames(const QStringList &names)
+{
     m_instrumentNames = names;
 
     // Ajuster le nombre d'instruments si nécessaire
-    if (names.size() != m_instruments) {
+    if (names.size() != m_instruments)
+    {
         setInstrumentCount(names.size());
     }
 
     // Mise à jour des headers verticaux
-    for (int i = 0; i < qMin(names.size(), m_instruments); ++i) {
+    for (int i = 0; i < qMin(names.size(), m_instruments); ++i)
+    {
         m_table->setVerticalHeaderItem(i, new QTableWidgetItem(names[i]));
     }
 
     // Pour les instruments sans nom, utiliser un nom par défaut
-    for (int i = names.size(); i < m_instruments; ++i) {
+    for (int i = names.size(); i < m_instruments; ++i)
+    {
         m_table->setVerticalHeaderItem(i, new QTableWidgetItem(QString("Instrument %1").arg(i + 1)));
     }
 }
 
-void DrumGrid::setPlaying(bool playing) {
-    if (m_playing == playing) return;
+void DrumGrid::setPlaying(bool playing)
+{
+    if (m_playing == playing)
+        return;
 
     m_playing = playing;
 
-    if (playing) {
+    if (playing)
+    {
         int interval = 60000 / (m_tempo * 4); // 16th notes
         m_stepTimer->start(interval);
-    } else {
+    }
+    else
+    {
         m_stepTimer->stop();
     }
 }
 
-void DrumGrid::setTempo(int bpm) {
+void DrumGrid::setTempo(int bpm)
+{
     m_tempo = bpm;
-    if (m_playing) {
+    if (m_playing)
+    {
         int interval = 60000 / (bpm * 4);
         m_stepTimer->setInterval(interval);
     }
 }
 
-void DrumGrid::setCurrentStep(int step) {
+void DrumGrid::setCurrentStep(int step)
+{
     m_currentStep = step % m_steps;
 
     // Mise à jour de l'affichage
     highlightCurrentStep();
 
     // Auto-scroll pour suivre la lecture
-    if (m_playing) {
+    if (m_playing)
+    {
         int columnX = m_table->columnViewportPosition(m_currentStep);
         int columnWidth = m_table->columnWidth(m_currentStep);
-        QScrollBar* hScrollBar = m_scrollArea->horizontalScrollBar();
+        QScrollBar *hScrollBar = m_scrollArea->horizontalScrollBar();
 
-        if (columnX < 0) {
+        if (columnX < 0)
+        {
             // La colonne est à gauche de la zone visible
             hScrollBar->setValue(hScrollBar->value() + columnX);
-        } else if (columnX + columnWidth > m_scrollArea->viewport()->width()) {
+        }
+        else if (columnX + columnWidth > m_scrollArea->viewport()->width())
+        {
             // La colonne est à droite de la zone visible
             hScrollBar->setValue(hScrollBar->value() + columnX + columnWidth - m_scrollArea->viewport()->width());
         }
@@ -335,47 +387,59 @@ void DrumGrid::setCurrentStep(int step) {
 
     // Déclenchement des instruments actifs
     QList<int> activeInstruments;
-    for (int row = 0; row < m_instruments; ++row) {
-        if (isCellActive(row, m_currentStep)) {
+    for (int row = 0; row < m_instruments; ++row)
+    {
+        if (isCellActive(row, m_currentStep))
+        {
             activeInstruments.append(row);
         }
     }
 
-    if (!activeInstruments.isEmpty()) {
+    if (!activeInstruments.isEmpty())
+    {
         emit stepTriggered(m_currentStep, activeInstruments);
     }
 }
 
-bool DrumGrid::isCellActive(int row, int col) const {
-    QPair<int,int> key(row, col);
+bool DrumGrid::isCellActive(int row, int col) const
+{
+    QPair<int, int> key(row, col);
     return m_cellStates.value(key, {false, QString()}).first;
 }
 
-void DrumGrid::setCellActive(int row, int col, bool active, const QString& userId) {
-    if (col >= m_steps || row >= m_instruments) return; // Protection contre les indices invalides
+void DrumGrid::setCellActive(int row, int col, bool active, const QString &userId)
+{
+    if (col >= m_steps || row >= m_instruments)
+        return; // Protection contre les indices invalides
 
-    QPair<int,int> key(row, col);
+    QPair<int, int> key(row, col);
     m_cellStates[key] = {active, userId};
     updateCellAppearance(row, col);
 }
 
-void DrumGrid::setUserColor(const QString& userId, const QColor& color) {
+void DrumGrid::setUserColor(const QString &userId, const QColor &color)
+{
     m_userColors[userId] = color;
 
     // Mise à jour de toutes les cellules de cet utilisateur
-    for (auto it = m_cellStates.begin(); it != m_cellStates.end(); ++it) {
-        if (it.value().second == userId) {
+    for (auto it = m_cellStates.begin(); it != m_cellStates.end(); ++it)
+    {
+        if (it.value().second == userId)
+        {
             updateCellAppearance(it.key().first, it.key().second);
         }
     }
 }
 
-QJsonObject DrumGrid::getGridState() const {
+QJsonObject DrumGrid::getGridState() const
+{
     QJsonObject state;
     QJsonArray cells;
 
-    for (auto it = m_cellStates.begin(); it != m_cellStates.end(); ++it) {
-        if (it.value().first) { // Seulement les cellules actives
+    for (auto it = m_cellStates.begin(); it != m_cellStates.end(); ++it)
+    {
+        if (it.value().first)
+        { // Seulement les cellules actives
             QJsonObject cell;
             cell["row"] = it.key().first;
             cell["col"] = it.key().second;
@@ -395,23 +459,27 @@ QJsonObject DrumGrid::getGridState() const {
     return state;
 }
 
-void DrumGrid::setGridState(const QJsonObject& state) {
+void DrumGrid::setGridState(const QJsonObject &state)
+{
     // Réinitialisation
     m_cellStates.clear();
 
     // Charger le nombre de steps si présent
-    if (state.contains("stepCount")) {
+    if (state.contains("stepCount"))
+    {
         setStepCount(state["stepCount"].toInt());
     }
 
     // Charger le nombre d'instruments si présent
-    if (state.contains("instrumentCount")) {
+    if (state.contains("instrumentCount"))
+    {
         setInstrumentCount(state["instrumentCount"].toInt());
     }
 
     // Chargement des cellules
     QJsonArray cells = state["cells"].toArray();
-    for (const auto& cellValue : cells) {
+    for (const auto &cellValue : cells)
+    {
         QJsonObject cell = cellValue.toObject();
         int row = cell["row"].toInt();
         int col = cell["col"].toInt();
@@ -422,16 +490,19 @@ void DrumGrid::setGridState(const QJsonObject& state) {
     }
 
     // Mise à jour des paramètres
-    if (state.contains("tempo")) {
+    if (state.contains("tempo"))
+    {
         setTempo(state["tempo"].toInt());
     }
 
-    if (state.contains("currentStep")) {
+    if (state.contains("currentStep"))
+    {
         setCurrentStep(state["currentStep"].toInt());
     }
 }
 
-void DrumGrid::onCellClicked(int row, int column) {
+void DrumGrid::onCellClicked(int row, int column)
+{
     bool currentState = isCellActive(row, column);
     bool newState = !currentState;
 
@@ -439,33 +510,40 @@ void DrumGrid::onCellClicked(int row, int column) {
     emit cellClicked(row, column, newState);
 }
 
-void DrumGrid::onStepTimer() {
+void DrumGrid::onStepTimer()
+{
     setCurrentStep(m_currentStep + 1);
 }
 
-void DrumGrid::updateCellAppearance(int row, int col) {
-    QTableWidgetItem* item = m_table->item(row, col);
-    if (!item) return;
+void DrumGrid::updateCellAppearance(int row, int col)
+{
+    QTableWidgetItem *item = m_table->item(row, col);
+    if (!item)
+        return;
 
-    QPair<int,int> key(row, col);
+    QPair<int, int> key(row, col);
     auto cellData = m_cellStates.value(key, {false, QString()});
     bool active = cellData.first;
     QString userId = cellData.second;
 
-    if (active) {
+    if (active)
+    {
         QColor color = m_userColors.value(userId, QColor(100, 150, 255));
         // Ajouter un effet de lueur pour les cellules actives
         QString colorStyle = QString(R"(
             background: %1;
             border: 2px solid %2;
             border-radius: 4px;
-        )").arg(color.name(), color.lighter(150).name());
+        )")
+                                 .arg(color.name(), color.lighter(150).name());
 
         item->setBackground(QBrush(color));
         item->setText("●");
         item->setForeground(Qt::white);
         item->setFont(QFont("Arial", 16, QFont::Bold));
-    } else {
+    }
+    else
+    {
         item->setBackground(QBrush(QColor(255, 255, 255, 8)));
         // Coloration alternée pour mieux visualiser les mesures
         QColor bgColor = (col % 4 == 0) ? QColor(220, 220, 220) : QColor(240, 240, 240);
