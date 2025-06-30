@@ -302,7 +302,10 @@ void MainWindow::onConnectionEstablished()
         // Connect the signal for receiving the room state
         connect(m_networkManager->getClient(), &DrumClient::roomStateReceived,
                 this, &MainWindow::onRoomStateReceived, Qt::UniqueConnection);
-
+        if (m_networkManager->getClient()) {
+            connect(m_networkManager->getClient(), &DrumClient::columnCountReceived,
+                    m_drumGrid, &DrumGrid::setStepCount, Qt::UniqueConnection);
+        }
         QTimer::singleShot(200, this, [this]() {
             if (m_networkManager->getClient()) {
                 m_networkManager->getClient()->requestRoomList();
@@ -319,6 +322,16 @@ void MainWindow::centerWindow() {
     const int y = (screenGeometry.height() - windowGeometry.height()) / 2;
 
     move(x, y);
+}
+
+void MainWindow::onColumnCountChanged(int newCount)
+{
+    QByteArray message = Protocol::createColumnUpdateMessage(newCount);
+
+    if (m_networkManager->isServer())
+        m_networkManager->broadcastMessage(message);
+    else if (m_networkManager->isClientConnected())
+        m_networkManager->sendMessage(message);
 }
 
 void MainWindow::setupUI() {
@@ -1258,11 +1271,13 @@ void MainWindow::onStartServerClicked()
     quint16 port = m_portSpin->value();
     if (m_networkManager->startServer(port))
     {
-        // AJOUTER ICI :
+        // Partager le RoomManager ET le MainWindow avec le serveur
         if (m_networkManager->getServer()) {
             m_networkManager->getServer()->setRoomManager(m_roomManager);
-            qDebug() << "[MAINWINDOW] RoomManager partagé avec le serveur";
+            m_networkManager->getServer()->setHostWindow(this);
+            qDebug() << "[MAINWINDOW] RoomManager et host window partagés avec le serveur";
         }
+
         m_startServerBtn->setText("Arrêter Serveur");
         statusBar()->showMessage(QString("Serveur démarré sur le port %1").arg(port));
         onRefreshRoomsRequested();
@@ -1271,14 +1286,9 @@ void MainWindow::onStartServerClicked()
     {
         QMessageBox::warning(this, "Erreur", "Impossible de démarrer le serveur");
     }
-    if (m_networkManager->getServer()) {
-        m_networkManager->getServer()->setRoomManager(m_roomManager);
-        m_networkManager->getServer()->setHostWindow(this); // AJOUT ICI
-        qDebug() << "[MAINWINDOW] RoomManager et host window partagés avec le serveur";
-    }
+
     updateNetworkStatus();
 }
-
 
 void MainWindow::onConnectToServerClicked()
 {
@@ -1328,28 +1338,30 @@ void MainWindow::onCreateRoomRequested(const QString &name, const QString &passw
             QMessageBox::warning(this, "Erreur", "Impossible de démarrer le serveur pour héberger le salon.");
             return;
         }
-        // AJOUTER ICI :
+        // Partage du RoomManager et du MainWindow avec le serveur
         if (m_networkManager->getServer()) {
             m_networkManager->getServer()->setRoomManager(m_roomManager);
-            qDebug() << "[MAINWINDOW] RoomManager partagé avec le serveur (auto)";
+            m_networkManager->getServer()->setHostWindow(this);
+            qDebug() << "[MAINWINDOW] RoomManager et host window partagés avec le serveur (auto)";
         }
     }
 
-    // Créer le salon
-    QString roomId = m_roomManager->createRoom(name, m_currentUserId, m_currentUserName, password);
-    m_roomManager->getRoom(roomId)->setMaxUsers(maxUsers);
+    // Création de la salle via RoomManager (retourne un QString, pas un Room*)
+    QString roomId = m_roomManager->createRoom(name, password, QString::number(maxUsers));
+    if (roomId.isEmpty()) {
+        QMessageBox::warning(this, "Erreur", "Impossible de créer la salle.");
+        return;
+    }
 
-    // Rejoindre automatiquement le salon créé
-    m_currentRoomId = roomId;
-    m_userListWidget->setCurrentRoom(roomId, name);
+    // Actualiser la liste des salles
+    onRefreshRoomsRequested();
 
-    // Passer en mode jeu
-    switchToGameMode();
-
-    // Mettre à jour l'affichage
-    updateRoomDisplay();
-    statusBar()->showMessage(QString("Salon '%1' créé avec succès !").arg(name));
+    // Rejoindre automatiquement la salle créée
+    onJoinRoomRequested(roomId, password);
 }
+
+
+
 
 void MainWindow::onJoinRoomRequested(const QString &roomId, const QString &password)
 {
@@ -1641,6 +1653,13 @@ void MainWindow::handleNetworkMessage(MessageType type, const QJsonObject &data)
                 m_networkManager->sendMessage(errorMsg);
             }
         }
+        break;
+    }
+
+    case MessageType::COLUMN_UPDATE:
+    {
+        int columnCount = data["columnCount"].toInt();
+        m_drumGrid->setStepCount(columnCount);
         break;
     }
 

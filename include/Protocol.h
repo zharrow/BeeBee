@@ -17,6 +17,7 @@ enum class MessageType {
     ROOM_LIST_REQUEST,
     ROOM_LIST_RESPONSE,
     ROOM_INFO_REQUEST,
+    COLUMN_UPDATE,
     ROOM_INFO,
     USER_JOINED,
     USER_LEFT,
@@ -72,6 +73,7 @@ public:
     static bool parseMessage(const QByteArray& data, MessageType& type, QJsonObject& content);
     static QByteArray createRoomInfoRequestMessage(const QJsonObject& data);
 
+    static QByteArray createColumnUpdateMessage(int columnCount);
     // Messages de rooms
     static QByteArray createCreateRoomMessage(const QString& name, const QString& password, int maxUsers);
     static QByteArray createJoinRoomMessage(const QString& roomId, const QString& password);

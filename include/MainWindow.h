@@ -41,6 +41,7 @@ public slots:
 
 private slots:
     // Contrôles audio
+
     void onPlayPauseClicked();
     void onStopClicked();
     void onTempoChanged(int bpm);
@@ -66,6 +67,7 @@ private slots:
     void onStartServerClicked();
     void onConnectToServerClicked();
     void onDisconnectClicked();
+    void onColumnCountChanged(int newCount);
 
     void onClientConnected(const QString& clientId);
     void onClientDisconnected(const QString& clientId);

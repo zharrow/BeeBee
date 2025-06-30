@@ -360,9 +360,18 @@ void DrumServer::processClientMessage(QTcpSocket *socket, const QByteArray &mess
     case MessageType::GRID_UPDATE:
     {
         GridCell cell = GridCell::fromJson(content);
-
         QByteArray broadcastMsg = Protocol::createGridUpdateMessage(cell);
         broadcastMessage(broadcastMsg);
+        qDebug() << "[SERVER] GRID_UPDATE reçu et broadcasté";
+        break;
+    }
+
+    case MessageType::COLUMN_UPDATE:
+    {
+        int columnCount = content["columnCount"].toInt();
+        QByteArray broadcastMsg = Protocol::createColumnUpdateMessage(columnCount);
+        broadcastMessage(broadcastMsg);
+        qDebug() << "[SERVER] COLUMN_UPDATE broadcasté, nouvelles colonnes:" << columnCount;
         break;
     }
 
