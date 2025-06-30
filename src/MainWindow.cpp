@@ -25,28 +25,16 @@
 #include <QPainter>
 
 MainWindow::MainWindow(QWidget *parent)
-    : QMainWindow(parent)
-    , m_drumGrid(nullptr)
-    , m_audioEngine(nullptr)
-    , m_networkManager(nullptr)
-    , m_roomManager(nullptr)
-    , m_roomListWidget(nullptr)
-    , m_userListWidget(nullptr)
-    , m_stackedWidget(nullptr)
-    , m_isPlaying(false)
-    , m_inGameMode(false)
-    , m_playPauseBtn(nullptr)  // Initialisation explicite
-    , m_stopBtn(nullptr)       // Initialisation explicite
-    , m_tempoSpin(nullptr)
-    , m_volumeSlider(nullptr)
-    , m_addColumnBtn(nullptr)
-    , m_removeColumnBtn(nullptr)
-    , m_stepCountLabel(nullptr)
-    , m_instrumentCountLabel(nullptr)
+    : QMainWindow(parent), m_drumGrid(nullptr), m_audioEngine(nullptr), m_networkManager(nullptr), m_roomManager(nullptr), m_roomListWidget(nullptr), m_userListWidget(nullptr), m_stackedWidget(nullptr), m_isPlaying(false), m_inGameMode(false), m_playPauseBtn(nullptr) // Initialisation explicite
+      ,
+      m_stopBtn(nullptr) // Initialisation explicite
+      ,
+      m_tempoSpin(nullptr), m_volumeSlider(nullptr), m_addColumnBtn(nullptr), m_removeColumnBtn(nullptr), m_stepCountLabel(nullptr), m_instrumentCountLabel(nullptr)
 {
     qDebug() << "=== DEBUT CONSTRUCTION MAINWINDOW ===";
 
-    try {
+    try
+    {
         // Générer un ID utilisateur unique
         qDebug() << "Génération ID utilisateur...";
         m_currentUserId = QUuid::createUuid().toString();
@@ -56,7 +44,8 @@ MainWindow::MainWindow(QWidget *parent)
         // Création des objets un par un avec vérification
         qDebug() << "Création DrumGrid...";
         m_drumGrid = new DrumGrid(this);
-        if (!m_drumGrid) {
+        if (!m_drumGrid)
+        {
             qDebug() << "ERREUR: Échec création DrumGrid";
             return;
         }
@@ -64,7 +53,8 @@ MainWindow::MainWindow(QWidget *parent)
 
         qDebug() << "Création AudioEngine...";
         m_audioEngine = new AudioEngine(this);
-        if (!m_audioEngine) {
+        if (!m_audioEngine)
+        {
             qDebug() << "ERREUR: Échec création AudioEngine";
             return;
         }
@@ -72,7 +62,8 @@ MainWindow::MainWindow(QWidget *parent)
 
         qDebug() << "Création NetworkManager...";
         m_networkManager = new NetworkManager(this);
-        if (!m_networkManager) {
+        if (!m_networkManager)
+        {
             qDebug() << "ERREUR: Échec création NetworkManager";
             return;
         }
@@ -80,7 +71,8 @@ MainWindow::MainWindow(QWidget *parent)
 
         qDebug() << "Création RoomManager...";
         m_roomManager = new RoomManager(this);
-        if (!m_roomManager) {
+        if (!m_roomManager)
+        {
             qDebug() << "ERREUR: Échec création RoomManager";
             return;
         }
@@ -88,7 +80,8 @@ MainWindow::MainWindow(QWidget *parent)
 
         qDebug() << "Création RoomListWidget...";
         m_roomListWidget = new RoomListWidget(this);
-        if (!m_roomListWidget) {
+        if (!m_roomListWidget)
+        {
             qDebug() << "ERREUR: Échec création RoomListWidget";
             return;
         }
@@ -96,7 +89,8 @@ MainWindow::MainWindow(QWidget *parent)
 
         qDebug() << "Création UserListWidget...";
         m_userListWidget = new UserListWidget(this);
-        if (!m_userListWidget) {
+        if (!m_userListWidget)
+        {
             qDebug() << "ERREUR: Échec création UserListWidget";
             return;
         }
@@ -104,7 +98,8 @@ MainWindow::MainWindow(QWidget *parent)
 
         qDebug() << "Création StackedWidget...";
         m_stackedWidget = new QStackedWidget(this);
-        if (!m_stackedWidget) {
+        if (!m_stackedWidget)
+        {
             qDebug() << "ERREUR: Échec création StackedWidget";
             return;
         }
@@ -129,28 +124,28 @@ MainWindow::MainWindow(QWidget *parent)
 
         // Connexions audio - APRÈS création des boutons
         qDebug() << "Début connexions audio...";
-        connect(m_drumGrid, &DrumGrid::stepTriggered, this, [this](int step, const QList<int> &instruments) {
-            m_audioEngine->playMultipleInstruments(instruments);
-        });
+        connect(m_drumGrid, &DrumGrid::stepTriggered, this, [this](int step, const QList<int> &instruments)
+                { m_audioEngine->playMultipleInstruments(instruments); });
         connect(m_drumGrid, &DrumGrid::cellClicked, this, &MainWindow::onGridCellClicked);
         connect(m_drumGrid, &DrumGrid::stepTriggered, this, &MainWindow::onStepTriggered);
         qDebug() << "Connexions audio terminées";
 
         // Connexion pour la mise à jour dynamique des instruments
         qDebug() << "Connexion mise à jour instruments...";
-        connect(m_audioEngine, &AudioEngine::instrumentCountChanged, this, [this](int newCount) {
+        connect(m_audioEngine, &AudioEngine::instrumentCountChanged, this, [this](int newCount)
+                {
             m_drumGrid->setInstrumentCount(newCount);
             QStringList instrumentNames = m_audioEngine->getInstrumentNames();
             m_drumGrid->setInstrumentNames(instrumentNames);
             qDebug() << "Nombre d'instruments mis à jour:" << newCount;
-            statusBar()->showMessage(QString("Instruments chargés: %1").arg(newCount), 3000);
-        });
+            statusBar()->showMessage(QString("Instruments chargés: %1").arg(newCount), 3000); });
         qDebug() << "Connexion instruments terminée";
 
         // Connexion pour gérer l'avertissement de limite atteinte
         qDebug() << "Connexion limite instruments...";
         connect(m_audioEngine, &AudioEngine::maxInstrumentsReached, this,
-                [this](int maxCount, int totalFiles) {
+                [this](int maxCount, int totalFiles)
+                {
                     QString message = QString("Limite d'instruments atteinte !\n\n"
                                               "Fichiers trouvés: %1\n"
                                               "Instruments chargés: %2\n"
@@ -165,22 +160,26 @@ MainWindow::MainWindow(QWidget *parent)
                     msgBox.setText(message);
                     msgBox.setIcon(QMessageBox::Question);
 
-                    QPushButton* unlimitedBtn = msgBox.addButton("Charger tous", QMessageBox::ActionRole);
-                    QPushButton* limitBtn = msgBox.addButton("Garder la limite", QMessageBox::RejectRole);
-                    QPushButton* customBtn = msgBox.addButton("Limite personnalisée", QMessageBox::ActionRole);
+                    QPushButton *unlimitedBtn = msgBox.addButton("Charger tous", QMessageBox::ActionRole);
+                    QPushButton *limitBtn = msgBox.addButton("Garder la limite", QMessageBox::RejectRole);
+                    QPushButton *customBtn = msgBox.addButton("Limite personnalisée", QMessageBox::ActionRole);
 
                     msgBox.exec();
 
-                    if (msgBox.clickedButton() == unlimitedBtn) {
+                    if (msgBox.clickedButton() == unlimitedBtn)
+                    {
                         m_audioEngine->setMaxInstruments(0);
                         reloadAudioSamples();
                         statusBar()->showMessage("Tous les instruments ont été chargés", 3000);
-                    } else if (msgBox.clickedButton() == customBtn) {
+                    }
+                    else if (msgBox.clickedButton() == customBtn)
+                    {
                         bool ok;
                         int newLimit = QInputDialog::getInt(this, "Limite personnalisée",
                                                             "Nombre maximum d'instruments:",
                                                             maxCount, 1, 1000, 1, &ok);
-                        if (ok && newLimit > maxCount) {
+                        if (ok && newLimit > maxCount)
+                        {
                             m_audioEngine->setMaxInstruments(newLimit);
                             reloadAudioSamples();
                             statusBar()->showMessage(QString("Limite augmentée à %1 instruments").arg(newLimit), 3000);
@@ -228,11 +227,14 @@ MainWindow::MainWindow(QWidget *parent)
 
         // Configuration client
         qDebug() << "Configuration client réseau...";
-        if (m_networkManager->getClient()) {
+        if (m_networkManager->getClient())
+        {
             connect(m_networkManager->getClient(), &DrumClient::gridCellUpdated,
                     m_drumGrid, &DrumGrid::applyGridUpdate, Qt::UniqueConnection);
             qDebug() << "Client réseau configuré";
-        } else {
+        }
+        else
+        {
             qDebug() << "Pas de client réseau disponible";
         }
 
@@ -246,34 +248,42 @@ MainWindow::MainWindow(QWidget *parent)
         qDebug() << "Status réseau mis à jour";
 
         qDebug() << "=== CONSTRUCTION MAINWINDOW TERMINEE AVEC SUCCES ===";
-
-    } catch (const std::exception& e) {
+    }
+    catch (const std::exception &e)
+    {
         qDebug() << "EXCEPTION dans MainWindow:" << e.what();
         throw;
-    } catch (...) {
+    }
+    catch (...)
+    {
         qDebug() << "EXCEPTION INCONNUE dans MainWindow";
         throw;
     }
 }
 
-
-void MainWindow::startServer() {
-    if (m_networkManager->startServer(8888)) {
+void MainWindow::startServer()
+{
+    if (m_networkManager->startServer(8888))
+    {
         qDebug() << "[MAINWINDOW] Serveur démarré avec succès";
-        if (m_networkManager->getServer()) {
+        if (m_networkManager->getServer())
+        {
             m_networkManager->getServer()->setRoomManager(m_roomManager);
             qDebug() << "[MAINWINDOW] RoomManager partagé avec le serveur";
             // Test immédiat
-            QList<Room*> rooms = m_roomManager->getPublicRooms();
+            QList<Room *> rooms = m_roomManager->getPublicRooms();
             qDebug() << "[MAINWINDOW] Salles visibles après partage:" << rooms.size();
-        } else {
+        }
+        else
+        {
             qWarning() << "[MAINWINDOW] Erreur : serveur non trouvé après démarrage";
         }
-    } else {
+    }
+    else
+    {
         qWarning() << "[MAINWINDOW] Échec du démarrage du serveur";
     }
 }
-
 
 MainWindow::~MainWindow()
 {
@@ -288,13 +298,13 @@ MainWindow::~MainWindow()
     }
 }
 
-
 void MainWindow::onConnectionEstablished()
 {
     qDebug() << "[MAINWINDOW] Connexion établie";
     updateNetworkStatus();
 
-    if (m_networkManager->isClientConnected() && m_networkManager->getClient()) {
+    if (m_networkManager->isClientConnected() && m_networkManager->getClient())
+    {
         // Connect the signal for receiving the room list
         connect(m_networkManager->getClient(), &DrumClient::roomListReceived,
                 this, &MainWindow::onRoomListReceived, Qt::UniqueConnection);
@@ -302,19 +312,21 @@ void MainWindow::onConnectionEstablished()
         // Connect the signal for receiving the room state
         connect(m_networkManager->getClient(), &DrumClient::roomStateReceived,
                 this, &MainWindow::onRoomStateReceived, Qt::UniqueConnection);
-        if (m_networkManager->getClient()) {
+        if (m_networkManager->getClient())
+        {
             connect(m_networkManager->getClient(), &DrumClient::columnCountReceived,
                     m_drumGrid, &DrumGrid::setStepCount, Qt::UniqueConnection);
         }
-        QTimer::singleShot(200, this, [this]() {
+        QTimer::singleShot(200, this, [this]()
+                           {
             if (m_networkManager->getClient()) {
                 m_networkManager->getClient()->requestRoomList();
-            }
-        });
+            } });
     }
 }
 
-void MainWindow::centerWindow() {
+void MainWindow::centerWindow()
+{
     const QRect screenGeometry = QApplication::primaryScreen()->geometry();
     const QRect windowGeometry = geometry();
 
@@ -334,27 +346,29 @@ void MainWindow::onColumnCountChanged(int newCount)
         m_networkManager->sendMessage(message);
 }
 
-void MainWindow::setupUI() {
+void MainWindow::setupUI()
+{
     qDebug() << "setupUI() - début";
 
-    try {
+    try
+    {
         // Widget central
         qDebug() << "Création widget central...";
-        QWidget* centralWidget = new QWidget(this);
+        QWidget *centralWidget = new QWidget(this);
         centralWidget->setObjectName("centralWidget");
         setCentralWidget(centralWidget);
         qDebug() << "Widget central créé";
 
         // Layout principal
         qDebug() << "Création layout principal...";
-        QVBoxLayout* mainLayout = new QVBoxLayout(centralWidget);
+        QVBoxLayout *mainLayout = new QVBoxLayout(centralWidget);
         mainLayout->setContentsMargins(0, 0, 0, 0);
         mainLayout->setSpacing(0);
         qDebug() << "Layout principal créé";
 
         // Header
         qDebug() << "Début createHeaderWidget()...";
-        QWidget* headerWidget = createHeaderWidget();
+        QWidget *headerWidget = createHeaderWidget();
         qDebug() << "createHeaderWidget() terminé";
 
         qDebug() << "Ajout header au layout...";
@@ -368,11 +382,11 @@ void MainWindow::setupUI() {
 
         // Créer les pages
         qDebug() << "Début createLobbyPage()...";
-        QWidget* lobbyPage = createLobbyPage();
+        QWidget *lobbyPage = createLobbyPage();
         qDebug() << "createLobbyPage() terminé";
 
         qDebug() << "Début createGamePage()...";
-        QWidget* gamePage = createGamePage();
+        QWidget *gamePage = createGamePage();
         qDebug() << "createGamePage() terminé";
 
         qDebug() << "Ajout pages au stackedWidget...";
@@ -386,37 +400,43 @@ void MainWindow::setupUI() {
 
         // Configuration initiale
         qDebug() << "Configuration initiale widgets...";
-        if (m_roomListWidget) {
+        if (m_roomListWidget)
+        {
             qDebug() << "Configuration RoomListWidget...";
             m_roomListWidget->setCurrentUser(m_currentUserId, m_currentUserName);
             qDebug() << "RoomListWidget configuré";
         }
-        if (m_userListWidget) {
+        if (m_userListWidget)
+        {
             qDebug() << "Configuration UserListWidget...";
             m_userListWidget->setCurrentUser(m_currentUserId);
             qDebug() << "UserListWidget configuré";
         }
 
         qDebug() << "setupUI() - fin avec succès";
-
-    } catch (const std::exception& e) {
+    }
+    catch (const std::exception &e)
+    {
         qDebug() << "EXCEPTION dans setupUI():" << e.what();
         throw;
-    } catch (...) {
+    }
+    catch (...)
+    {
         qDebug() << "EXCEPTION INCONNUE dans setupUI()";
         throw;
     }
 }
 
-
-
-QWidget* MainWindow::createHeaderWidget() {
+QWidget *MainWindow::createHeaderWidget()
+{
     qDebug() << "createHeaderWidget() - début";
 
-    try {
+    try
+    {
         qDebug() << "Création widget header...";
-        QWidget* header = new QWidget(this);
-        if (!header) {
+        QWidget *header = new QWidget(this);
+        if (!header)
+        {
             qDebug() << "ERREUR: Échec création header widget";
             return nullptr;
         }
@@ -431,8 +451,9 @@ QWidget* MainWindow::createHeaderWidget() {
         qDebug() << "Taille fixe configurée";
 
         qDebug() << "Création layout header...";
-        QHBoxLayout* headerLayout = new QHBoxLayout(header);
-        if (!headerLayout) {
+        QHBoxLayout *headerLayout = new QHBoxLayout(header);
+        if (!headerLayout)
+        {
             qDebug() << "ERREUR: Échec création headerLayout";
             return nullptr;
         }
@@ -444,8 +465,9 @@ QWidget* MainWindow::createHeaderWidget() {
 
         // Logo
         qDebug() << "Création logoLabel...";
-        QLabel* logoLabel = new QLabel(this);
-        if (!logoLabel) {
+        QLabel *logoLabel = new QLabel(this);
+        if (!logoLabel)
+        {
             qDebug() << "ERREUR: Échec création logoLabel";
             return nullptr;
         }
@@ -459,8 +481,9 @@ QWidget* MainWindow::createHeaderWidget() {
 
         // Titre
         qDebug() << "Création titleLabel...";
-        QLabel* titleLabel = new QLabel("BeeBee", this);
-        if (!titleLabel) {
+        QLabel *titleLabel = new QLabel("BeeBee", this);
+        if (!titleLabel)
+        {
             qDebug() << "ERREUR: Échec création titleLabel";
             return nullptr;
         }
@@ -473,7 +496,8 @@ QWidget* MainWindow::createHeaderWidget() {
         // Status réseau
         qDebug() << "Création networkStatusLabel...";
         m_networkStatusLabel = new QLabel("Déconnecté", this);
-        if (!m_networkStatusLabel) {
+        if (!m_networkStatusLabel)
+        {
             qDebug() << "ERREUR: Échec création networkStatusLabel";
             return nullptr;
         }
@@ -499,39 +523,42 @@ QWidget* MainWindow::createHeaderWidget() {
 
         qDebug() << "createHeaderWidget() - fin avec succès";
         return header;
-
-    } catch (const std::exception& e) {
+    }
+    catch (const std::exception &e)
+    {
         qDebug() << "EXCEPTION dans createHeaderWidget():" << e.what();
         return nullptr;
-    } catch (...) {
+    }
+    catch (...)
+    {
         qDebug() << "EXCEPTION INCONNUE dans createHeaderWidget()";
         return nullptr;
     }
 }
 
-
-QWidget* MainWindow::createLobbyPage() {
-    QWidget* lobbyPage = new QWidget(this);
+QWidget *MainWindow::createLobbyPage()
+{
+    QWidget *lobbyPage = new QWidget(this);
     lobbyPage->setObjectName("lobbyPage");
 
-    QVBoxLayout* lobbyLayout = new QVBoxLayout(lobbyPage);
+    QVBoxLayout *lobbyLayout = new QVBoxLayout(lobbyPage);
     lobbyLayout->setContentsMargins(20, 20, 20, 20);
     lobbyLayout->setSpacing(20);
 
     // Carte de connexion
-    QWidget* connectionCard = createConnectionCard();
+    QWidget *connectionCard = createConnectionCard();
     lobbyLayout->addWidget(connectionCard);
 
     // Contenu des salons
-    QHBoxLayout* roomsLayout = new QHBoxLayout();
+    QHBoxLayout *roomsLayout = new QHBoxLayout();
     roomsLayout->setSpacing(20);
 
     // Panneau des salons
-    QWidget* roomsPanel = createRoomsPanel();
+    QWidget *roomsPanel = createRoomsPanel();
     roomsLayout->addWidget(roomsPanel, 2);
 
     // Panneau des utilisateurs
-    QWidget* usersPanel = createUsersPanel();
+    QWidget *usersPanel = createUsersPanel();
     roomsLayout->addWidget(usersPanel, 1);
 
     lobbyLayout->addLayout(roomsLayout);
@@ -539,18 +566,19 @@ QWidget* MainWindow::createLobbyPage() {
     return lobbyPage;
 }
 
-QWidget* MainWindow::createConnectionCard() {
-    QWidget* card = new QWidget(this);
+QWidget *MainWindow::createConnectionCard()
+{
+    QWidget *card = new QWidget(this);
     card->setObjectName("connectionCard");
     card->setMaximumHeight(200);
 
-    QVBoxLayout* cardLayout = new QVBoxLayout(card);
+    QVBoxLayout *cardLayout = new QVBoxLayout(card);
     cardLayout->setContentsMargins(30, 20, 30, 20);
 
-    QLabel* titleLabel = new QLabel("Connexion Réseau", this);
+    QLabel *titleLabel = new QLabel("Connexion Réseau", this);
     titleLabel->setObjectName("cardTitle");
 
-    QGridLayout* formLayout = new QGridLayout();
+    QGridLayout *formLayout = new QGridLayout();
     formLayout->setHorizontalSpacing(20);
     formLayout->setVerticalSpacing(15);
 
@@ -573,7 +601,7 @@ QWidget* MainWindow::createConnectionCard() {
     formLayout->addWidget(m_serverAddressEdit, 1, 1, 1, 2);
     formLayout->addWidget(m_portSpin, 1, 3);
 
-    QHBoxLayout* buttonLayout = new QHBoxLayout();
+    QHBoxLayout *buttonLayout = new QHBoxLayout();
     buttonLayout->setSpacing(10);
     buttonLayout->addWidget(m_startServerBtn);
     buttonLayout->addWidget(m_connectBtn);
@@ -586,11 +614,12 @@ QWidget* MainWindow::createConnectionCard() {
     return card;
 }
 
-QWidget* MainWindow::createRoomsPanel() {
-    QWidget* panel = new QWidget(this);
+QWidget *MainWindow::createRoomsPanel()
+{
+    QWidget *panel = new QWidget(this);
     panel->setObjectName("roomsPanel");
 
-    QVBoxLayout* layout = new QVBoxLayout(panel);
+    QVBoxLayout *layout = new QVBoxLayout(panel);
     layout->setContentsMargins(0, 0, 0, 0);
 
     m_roomListWidget->setObjectName("roomListWidget");
@@ -599,11 +628,12 @@ QWidget* MainWindow::createRoomsPanel() {
     return panel;
 }
 
-QWidget* MainWindow::createUsersPanel() {
-    QWidget* panel = new QWidget(this);
+QWidget *MainWindow::createUsersPanel()
+{
+    QWidget *panel = new QWidget(this);
     panel->setObjectName("usersPanel");
 
-    QVBoxLayout* layout = new QVBoxLayout(panel);
+    QVBoxLayout *layout = new QVBoxLayout(panel);
     layout->setContentsMargins(0, 0, 0, 0);
 
     m_userListWidget->setObjectName("userListWidget");
@@ -614,9 +644,10 @@ QWidget* MainWindow::createUsersPanel() {
 
 // Ajoutez ces méthodes à la fin de votre MainWindow.cpp
 
-void MainWindow::setupMenus() {
+void MainWindow::setupMenus()
+{
     // Menu Fichier
-    QMenu* fileMenu = menuBar()->addMenu("&Fichier");
+    QMenu *fileMenu = menuBar()->addMenu("&Fichier");
     fileMenu->addAction("&Nouveau", QKeySequence::New, [this]() { /* TODO */ });
     fileMenu->addAction("&Ouvrir", QKeySequence::Open, [this]() { /* TODO */ });
     fileMenu->addAction("&Sauvegarder", QKeySequence::Save, [this]() { /* TODO */ });
@@ -624,51 +655,58 @@ void MainWindow::setupMenus() {
     fileMenu->addAction("&Quitter", QKeySequence::Quit, this, &QWidget::close);
 
     // Menu Audio
-    QMenu* audioMenu = menuBar()->addMenu("&Audio");
+    QMenu *audioMenu = menuBar()->addMenu("&Audio");
     audioMenu->addAction("&Recharger les samples", this, &MainWindow::reloadAudioSamples);
 }
 
-void MainWindow::setupStatusBar() {
+void MainWindow::setupStatusBar()
+{
     statusBar()->setObjectName("statusBar");
     statusBar()->showMessage("Bienvenue dans DrumBox Multiplayer !");
 }
 
-void MainWindow::onRoomListReceived(const QJsonArray& roomsArray) {
+void MainWindow::onRoomListReceived(const QJsonArray &roomsArray)
+{
     qDebug() << "[MAINWINDOW] Room list received:" << roomsArray.size();
-    if (m_roomListWidget) {
+    if (m_roomListWidget)
+    {
         m_roomListWidget->updateRoomList(roomsArray);
     }
 }
 
-void MainWindow::onRoomStateReceived(const QJsonObject& roomInfo) {
+void MainWindow::onRoomStateReceived(const QJsonObject &roomInfo)
+{
     m_currentRoomId = roomInfo["id"].toString();
-    if (m_userListWidget) {
+    if (m_userListWidget)
+    {
         m_userListWidget->setCurrentRoom(m_currentRoomId, roomInfo["name"].toString());
         m_userListWidget->updateUserList(User::listFromJson(roomInfo["users"].toArray()));
     }
     switchToGameMode();
-    if (roomInfo.contains("grid") && m_drumGrid) {
+    if (roomInfo.contains("grid") && m_drumGrid)
+    {
         m_drumGrid->setGridState(roomInfo["grid"].toObject());
     }
     statusBar()->showMessage(QString("Rejoint le salon '%1'").arg(roomInfo["name"].toString()));
 }
 
-QWidget* MainWindow::createGamePage() {
-    QWidget* gamePage = new QWidget(this);
+QWidget *MainWindow::createGamePage()
+{
+    QWidget *gamePage = new QWidget(this);
     gamePage->setObjectName("gamePage");
 
-    QHBoxLayout* gameLayout = new QHBoxLayout(gamePage);
+    QHBoxLayout *gameLayout = new QHBoxLayout(gamePage);
     gameLayout->setContentsMargins(20, 20, 20, 20);
     gameLayout->setSpacing(20);
 
     // Panneau de contrôle
-    QWidget* controlPanel = createControlPanel();
+    QWidget *controlPanel = createControlPanel();
     gameLayout->addWidget(controlPanel);
 
     // Grille de batterie
-    QWidget* gridContainer = new QWidget(this);
+    QWidget *gridContainer = new QWidget(this);
     gridContainer->setObjectName("gridContainer");
-    QVBoxLayout* gridLayout = new QVBoxLayout(gridContainer);
+    QVBoxLayout *gridLayout = new QVBoxLayout(gridContainer);
     gridLayout->setContentsMargins(20, 20, 20, 20);
 
     m_drumGrid->setObjectName("drumGrid");
@@ -679,21 +717,22 @@ QWidget* MainWindow::createGamePage() {
     return gamePage;
 }
 
-QWidget* MainWindow::createControlPanel() {
-    QWidget* panel = new QWidget(this);
+QWidget *MainWindow::createControlPanel()
+{
+    QWidget *panel = new QWidget(this);
     panel->setObjectName("controlPanel");
     panel->setMaximumWidth(350);
 
-    QVBoxLayout* layout = new QVBoxLayout(panel);
+    QVBoxLayout *layout = new QVBoxLayout(panel);
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(20);
 
     // Contrôles de lecture
-    QWidget* playbackCard = createPlaybackCard();
+    QWidget *playbackCard = createPlaybackCard();
     layout->addWidget(playbackCard);
 
     // Contrôles pour la grille
-    QGroupBox* gridControlGroup = new QGroupBox("Grille", this);
+    QGroupBox *gridControlGroup = new QGroupBox("Grille", this);
     gridControlGroup->setStyleSheet(R"(
         QGroupBox {
             font-weight: bold;
@@ -710,7 +749,7 @@ QWidget* MainWindow::createControlPanel() {
         }
     )");
 
-    QVBoxLayout* gridControlLayout = new QVBoxLayout(gridControlGroup);
+    QVBoxLayout *gridControlLayout = new QVBoxLayout(gridControlGroup);
     gridControlLayout->setContentsMargins(15, 15, 15, 15);
     gridControlLayout->setSpacing(15);
 
@@ -751,8 +790,8 @@ QWidget* MainWindow::createControlPanel() {
     gridControlLayout->addLayout(columnLayout);
 
     // Affichage du nombre d'instruments
-    QHBoxLayout* instrumentLayout = new QHBoxLayout();
-    QLabel* instrumentLabel = new QLabel("Instruments:", this);
+    QHBoxLayout *instrumentLayout = new QHBoxLayout();
+    QLabel *instrumentLabel = new QLabel("Instruments:", this);
     instrumentLabel->setStyleSheet("color: #e2e8f0; font-weight: bold;");
 
     m_instrumentCountLabel = new QLabel("8", this);
@@ -782,21 +821,22 @@ QWidget* MainWindow::createControlPanel() {
     return panel;
 }
 
-QWidget* MainWindow::createPlaybackCard() {
-    QWidget* card = new QWidget(this);
+QWidget *MainWindow::createPlaybackCard()
+{
+    QWidget *card = new QWidget(this);
     card->setObjectName("playbackCard");
 
-    QVBoxLayout* layout = new QVBoxLayout(card);
+    QVBoxLayout *layout = new QVBoxLayout(card);
     layout->setContentsMargins(20, 20, 20, 20);
     layout->setSpacing(15);
 
-    QLabel* titleLabel = new QLabel("Contrôles", this);
+    QLabel *titleLabel = new QLabel("Contrôles", this);
     titleLabel->setObjectName("cardTitle");
     titleLabel->setStyleSheet("color: #ffffff; font-size: 18px; font-weight: bold; margin-bottom: 10px;");
     layout->addWidget(titleLabel);
 
     // Boutons de lecture
-    QHBoxLayout* playbackLayout = new QHBoxLayout();
+    QHBoxLayout *playbackLayout = new QHBoxLayout();
     m_playPauseBtn = createStyledButton("▶ Play", "primary");
     m_stopBtn = createStyledButton("⏹ Stop", "secondary");
     playbackLayout->addWidget(m_playPauseBtn);
@@ -804,8 +844,8 @@ QWidget* MainWindow::createPlaybackCard() {
     layout->addLayout(playbackLayout);
 
     // Tempo
-    QHBoxLayout* tempoLayout = new QHBoxLayout();
-    QLabel* tempoLabel = new QLabel("Tempo:", this);
+    QHBoxLayout *tempoLayout = new QHBoxLayout();
+    QLabel *tempoLabel = new QLabel("Tempo:", this);
     tempoLabel->setStyleSheet("color: #e2e8f0; font-weight: bold;");
     m_tempoSpin = createStyledSpinBox(60, 200, 120);
     m_tempoSpin->setSuffix(" BPM");
@@ -814,8 +854,8 @@ QWidget* MainWindow::createPlaybackCard() {
     layout->addLayout(tempoLayout);
 
     // Volume
-    QHBoxLayout* volumeLayout = new QHBoxLayout();
-    QLabel* volumeLabel = new QLabel("Volume:", this);
+    QHBoxLayout *volumeLayout = new QHBoxLayout();
+    QLabel *volumeLabel = new QLabel("Volume:", this);
     volumeLabel->setStyleSheet("color: #e2e8f0; font-weight: bold;");
     m_volumeSlider = new QSlider(Qt::Horizontal, this);
     m_volumeSlider->setObjectName("volumeSlider");
@@ -828,62 +868,69 @@ QWidget* MainWindow::createPlaybackCard() {
     return card;
 }
 
-QLineEdit* MainWindow::createStyledLineEdit(const QString& placeholder, const QString& text) {
-    QLineEdit* edit = new QLineEdit(text, this);
+QLineEdit *MainWindow::createStyledLineEdit(const QString &placeholder, const QString &text)
+{
+    QLineEdit *edit = new QLineEdit(text, this);
     edit->setPlaceholderText(placeholder);
     edit->setObjectName("styledLineEdit");
     return edit;
 }
 
-QSpinBox* MainWindow::createStyledSpinBox(int min, int max, int value) {
-    QSpinBox* spin = new QSpinBox(this);
+QSpinBox *MainWindow::createStyledSpinBox(int min, int max, int value)
+{
+    QSpinBox *spin = new QSpinBox(this);
     spin->setObjectName("styledSpinBox");
     spin->setRange(min, max);
     spin->setValue(value);
     return spin;
 }
 
-QPushButton* MainWindow::createStyledButton(const QString& text, const QString& style) {
-    QPushButton* button = new QPushButton(text, this);
+QPushButton *MainWindow::createStyledButton(const QString &text, const QString &style)
+{
+    QPushButton *button = new QPushButton(text, this);
     button->setObjectName("styledButton");
     button->setProperty("buttonStyle", style);
     button->setCursor(Qt::PointingHandCursor);
     return button;
 }
 
-void MainWindow::connectSignals() {
+void MainWindow::connectSignals()
+{
     // Connexions des boutons
     connect(m_startServerBtn, &QPushButton::clicked, this, &MainWindow::onStartServerClicked);
     connect(m_connectBtn, &QPushButton::clicked, this, &MainWindow::onConnectToServerClicked);
     connect(m_disconnectBtn, &QPushButton::clicked, this, &MainWindow::onDisconnectClicked);
-    connect(m_userNameEdit, &QLineEdit::textChanged, [this](const QString& text) {
-        m_currentUserName = text.isEmpty() ? "Joueur" : text;
-    });
+    connect(m_userNameEdit, &QLineEdit::textChanged, [this](const QString &text)
+            { m_currentUserName = text.isEmpty() ? "Joueur" : text; });
 
     // Connexions pour les boutons de colonnes - VÉRIFIER EXISTENCE
-    if (m_addColumnBtn && m_removeColumnBtn) {
+    if (m_addColumnBtn && m_removeColumnBtn)
+    {
         connect(m_addColumnBtn, &QPushButton::clicked, this, &MainWindow::onAddColumnClicked);
         connect(m_removeColumnBtn, &QPushButton::clicked, this, &MainWindow::onRemoveColumnClicked);
     }
 
-    if (m_drumGrid) {
+    if (m_drumGrid)
+    {
         connect(m_drumGrid, &DrumGrid::stepCountChanged, this, &MainWindow::onStepCountChanged);
         connect(m_drumGrid, &DrumGrid::columnCountChanged, this, &MainWindow::onColumnCountChanged);
     }
 
     // Connexion pour mettre à jour l'affichage du nombre d'instruments avec limite
-    if (m_drumGrid && m_instrumentCountLabel) {
-        connect(m_drumGrid, &DrumGrid::instrumentCountChanged, this, [this](int newCount) {
+    if (m_drumGrid && m_instrumentCountLabel)
+    {
+        connect(m_drumGrid, &DrumGrid::instrumentCountChanged, this, [this](int newCount)
+                {
             m_instrumentCountLabel->setText(QString::number(newCount));
 
             int maxInstruments = m_audioEngine->getMaxInstruments();
             QString limitInfo = (maxInstruments == 0) ? "illimitée" : QString("max: %1").arg(maxInstruments);
-            m_instrumentCountLabel->setToolTip(QString("Instruments: %1 (%2)").arg(newCount).arg(limitInfo));
-        });
+            m_instrumentCountLabel->setToolTip(QString("Instruments: %1 (%2)").arg(newCount).arg(limitInfo)); });
     }
 
     // Connexions audio - VÉRIFIER EXISTENCE DES BOUTONS
-    if (m_playPauseBtn && m_stopBtn && m_tempoSpin && m_volumeSlider) {
+    if (m_playPauseBtn && m_stopBtn && m_tempoSpin && m_volumeSlider)
+    {
         connect(m_playPauseBtn, &QPushButton::clicked, this, &MainWindow::onPlayPauseClicked);
         connect(m_stopBtn, &QPushButton::clicked, this, &MainWindow::onStopClicked);
         connect(m_tempoSpin, QOverload<int>::of(&QSpinBox::valueChanged), this, &MainWindow::onTempoChanged);
@@ -891,20 +938,23 @@ void MainWindow::connectSignals() {
     }
 
     // Connexions room list
-    if (m_roomListWidget) {
+    if (m_roomListWidget)
+    {
         connect(m_roomListWidget, &RoomListWidget::createRoomRequested, this, &MainWindow::onCreateRoomRequested);
         connect(m_roomListWidget, &RoomListWidget::joinRoomRequested, this, &MainWindow::onJoinRoomRequested);
         connect(m_roomListWidget, &RoomListWidget::refreshRequested, this, &MainWindow::onRefreshRoomsRequested);
     }
 
     // Connexions user list
-    if (m_userListWidget) {
+    if (m_userListWidget)
+    {
         connect(m_userListWidget, &UserListWidget::leaveRoomRequested, this, &MainWindow::onLeaveRoomRequested);
         connect(m_userListWidget, &UserListWidget::kickUserRequested, this, &MainWindow::onKickUserRequested);
         connect(m_userListWidget, &UserListWidget::transferHostRequested, this, &MainWindow::onTransferHostRequested);
     }
 
-    if (m_networkManager && m_networkManager->getClient()) {
+    if (m_networkManager && m_networkManager->getClient())
+    {
         connect(m_networkManager->getClient(), &DrumClient::roomStateReceived,
                 this, &MainWindow::onRoomStateReceived);
     }
@@ -914,7 +964,8 @@ void MainWindow::connectSignals() {
     resize(1200, 700);
 }
 
-void MainWindow::applyModernStyle() {
+void MainWindow::applyModernStyle()
+{
     // Style moderne pour l'application
     QString styleSheet = R"(
         /* Couleurs principales */
@@ -1098,45 +1149,50 @@ void MainWindow::applyModernStyle() {
 
     setStyleSheet(styleSheet);
 }
-void MainWindow::cleanupConnections() {
-    if (m_networkManager->isServerRunning()) {
+void MainWindow::cleanupConnections()
+{
+    if (m_networkManager->isServerRunning())
+    {
         m_networkManager->stopServer();
-    } else if (m_networkManager->isClientConnected()) {
+    }
+    else if (m_networkManager->isClientConnected())
+    {
         m_networkManager->disconnectFromServer();
     }
 }
 
-void MainWindow::switchToLobbyMode() {
+void MainWindow::switchToLobbyMode()
+{
     m_inGameMode = false;
     m_stackedWidget->setCurrentIndex(0);
 
     // Arrêter la lecture si en cours
-    if (m_isPlaying) {
+    if (m_isPlaying)
+    {
         onStopClicked();
     }
 
     // Mettre à jour la liste des salons
-    QTimer::singleShot(100, this, [this]() {
-        onRefreshRoomsRequested();
-    });
+    QTimer::singleShot(100, this, [this]()
+                       { onRefreshRoomsRequested(); });
 
-    if (m_networkManager->isServerRunning()) {
+    if (m_networkManager->isServerRunning())
+    {
         // En tant que serveur, afficher nos propres salons
         QJsonArray roomsArray;
-        for (Room* room : m_roomManager->getAllRooms()) {
+        for (Room *room : m_roomManager->getAllRooms())
+        {
             roomsArray.append(room->toJson());
         }
         m_roomListWidget->updateRoomList(roomsArray);
-
     }
 
     // Animation de transition
-    QPropertyAnimation* animation = new QPropertyAnimation(m_stackedWidget, "geometry");
+    QPropertyAnimation *animation = new QPropertyAnimation(m_stackedWidget, "geometry");
     animation->setDuration(300);
     animation->setEasingCurve(QEasingCurve::OutCubic);
     animation->start(QAbstractAnimation::DeleteWhenStopped);
 }
-
 
 void MainWindow::switchToGameMode()
 {
@@ -1146,7 +1202,7 @@ void MainWindow::switchToGameMode()
     updateRoomDisplay();
 
     // Animation de transition
-    QPropertyAnimation* animation = new QPropertyAnimation(m_stackedWidget, "geometry");
+    QPropertyAnimation *animation = new QPropertyAnimation(m_stackedWidget, "geometry");
     animation->setDuration(300);
     animation->setEasingCurve(QEasingCurve::OutCubic);
     animation->start(QAbstractAnimation::DeleteWhenStopped);
@@ -1241,10 +1297,12 @@ void MainWindow::onStepTriggered(int step, const QList<int> &activeInstruments)
     // L'AudioEngine gère déjà la lecture via la connexion directe
 }
 
-void MainWindow::reloadAudioSamples() {
+void MainWindow::reloadAudioSamples()
+{
     int previousCount = m_audioEngine->getInstrumentCount();
 
-    if (m_audioEngine->loadSamples()) {
+    if (m_audioEngine->loadSamples())
+    {
         int newCount = m_audioEngine->getInstrumentCount();
         statusBar()->showMessage(QString("Samples rechargés: %1 instruments (était %2)").arg(newCount).arg(previousCount), 3000);
 
@@ -1253,7 +1311,9 @@ void MainWindow::reloadAudioSamples() {
         qDebug() << "  - Instruments précédents:" << previousCount;
         qDebug() << "  - Nouveaux instruments:" << newCount;
         qDebug() << "  - Limite actuelle:" << (m_audioEngine->getMaxInstruments() == 0 ? "Illimitée" : QString::number(m_audioEngine->getMaxInstruments()));
-    } else {
+    }
+    else
+    {
         statusBar()->showMessage("Aucun sample trouvé - Mode silencieux", 3000);
     }
 }
@@ -1273,7 +1333,8 @@ void MainWindow::onStartServerClicked()
     if (m_networkManager->startServer(port))
     {
         // Partager le RoomManager ET le MainWindow avec le serveur
-        if (m_networkManager->getServer()) {
+        if (m_networkManager->getServer())
+        {
             m_networkManager->getServer()->setRoomManager(m_roomManager);
             m_networkManager->getServer()->setHostWindow(this);
             qDebug() << "[MAINWINDOW] RoomManager et host window partagés avec le serveur";
@@ -1340,29 +1401,31 @@ void MainWindow::onCreateRoomRequested(const QString &name, const QString &passw
             return;
         }
         // Partage du RoomManager et du MainWindow avec le serveur
-        if (m_networkManager->getServer()) {
+        if (m_networkManager->getServer())
+        {
             m_networkManager->getServer()->setRoomManager(m_roomManager);
-            m_networkManager->getServer()->setHostWindow(this);
+            // m_networkManager->getServer()->setHostWindow(this);
             qDebug() << "[MAINWINDOW] RoomManager et host window partagés avec le serveur (auto)";
         }
     }
 
     // Création de la salle via RoomManager (retourne un QString, pas un Room*)
-    QString roomId = m_roomManager->createRoom(name, password, QString::number(maxUsers));
-    if (roomId.isEmpty()) {
-        QMessageBox::warning(this, "Erreur", "Impossible de créer la salle.");
-        return;
-    }
-
+    QString roomId = m_roomManager->createRoom(name, m_currentUserId, m_currentUserName, password);
+    m_roomManager->getRoom(roomId)->setMaxUsers(maxUsers);
+    
     // Actualiser la liste des salles
-    onRefreshRoomsRequested();
+    m_currentRoomId = roomId;
+    m_userListWidget->setCurrentRoom(roomId, name);
 
-    // Rejoindre automatiquement la salle créée
-    onJoinRoomRequested(roomId, password);
+    switchToGameMode();
+
+    updateRoomDisplay();
+
+    // onRefreshRoomsRequested();
+    // // Rejoindre automatiquement la salle créée
+    // onJoinRoomRequested(roomId, password);
+    
 }
-
-
-
 
 void MainWindow::onJoinRoomRequested(const QString &roomId, const QString &password)
 {
@@ -1389,8 +1452,7 @@ void MainWindow::onJoinRoomRequested(const QString &roomId, const QString &passw
             roomId,
             m_currentUserId,
             m_currentUserName,
-            password
-            );
+            password);
     }
     else
     {
@@ -1427,27 +1489,33 @@ void MainWindow::onLeaveRoomRequested()
     statusBar()->showMessage("Salon quitté");
 }
 
-void MainWindow::onRefreshRoomsRequested() {
+void MainWindow::onRefreshRoomsRequested()
+{
     qDebug() << "[MAINWINDOW] Demande d'actualisation des salles";
 
-    if (m_networkManager->isServerRunning()) {
+    if (m_networkManager->isServerRunning())
+    {
         // Afficher les salons locaux
         QJsonArray roomsArray;
-        for (Room* room : m_roomManager->getPublicRooms()) {
+        for (Room *room : m_roomManager->getPublicRooms())
+        {
             roomsArray.append(room->toJson());
         }
         m_roomListWidget->updateRoomList(roomsArray);
-    } else if (m_networkManager->isClientConnected() && m_networkManager->getClient()) {
+    }
+    else if (m_networkManager->isClientConnected() && m_networkManager->getClient())
+    {
         // Demander la liste au serveur
         m_networkManager->getClient()->requestRoomList();
-    } else {
+    }
+    else
+    {
         qWarning() << "[MAINWINDOW] Aucune connexion active pour actualiser";
         // Vider la liste
         QJsonArray emptyArray;
         m_roomListWidget->updateRoomList(emptyArray);
     }
 }
-
 
 void MainWindow::onKickUserRequested(const QString &userId)
 {
@@ -1506,7 +1574,6 @@ void MainWindow::onClientDisconnected(const QString &clientId)
     updateRoomDisplay();
 }
 
-
 void MainWindow::onConnectionLost()
 {
     statusBar()->showMessage("Connexion perdue");
@@ -1530,7 +1597,8 @@ void MainWindow::onNetworkError(const QString &error)
 
 // Méthodes utilitaires
 
-void MainWindow::updatePlayButton() {
+void MainWindow::updatePlayButton()
+{
     m_playPauseBtn->setText(m_isPlaying ? "⏸ Pause" : "▶ Play");
 }
 
@@ -1587,8 +1655,10 @@ void MainWindow::updateRoomDisplay()
     }
 }
 
-void MainWindow::syncGridWithNetwork() {
-    if (m_networkManager->isServerRunning()) {
+void MainWindow::syncGridWithNetwork()
+{
+    if (m_networkManager->isServerRunning())
+    {
         // Le serveur diffuse son état complet
         QJsonObject gridState = m_drumGrid->getGridState();
         gridState["instrumentNames"] = QJsonArray::fromStringList(m_audioEngine->getInstrumentNames());
@@ -1702,7 +1772,6 @@ void MainWindow::handleNetworkMessage(MessageType type, const QJsonObject &data)
         break;
     }
 
-
     case MessageType::ROOM_INFO:
     {
         // Réponse après avoir rejoint un salon
@@ -1778,26 +1847,31 @@ void MainWindow::handleNetworkMessage(MessageType type, const QJsonObject &data)
         updatePlayButton();
 
         // Mettre à jour les instruments si présents
-        if (data.contains("instrumentNames")) {
+        if (data.contains("instrumentNames"))
+        {
             QJsonArray namesArray = data["instrumentNames"].toArray();
             QStringList instrumentNames;
-            for (const auto& nameValue : namesArray) {
+            for (const auto &nameValue : namesArray)
+            {
                 instrumentNames.append(nameValue.toString());
             }
             m_drumGrid->setInstrumentNames(instrumentNames);
         }
 
-        if (data.contains("instrumentCount")) {
+        if (data.contains("instrumentCount"))
+        {
             int instrumentCount = data["instrumentCount"].toInt();
             m_drumGrid->setInstrumentCount(instrumentCount);
         }
         break;
     }
 
-    case MessageType::INSTRUMENT_SYNC: {
+    case MessageType::INSTRUMENT_SYNC:
+    {
         QJsonArray namesArray = data["instrumentNames"].toArray();
         QStringList instrumentNames;
-        for (const auto& nameValue : namesArray) {
+        for (const auto &nameValue : namesArray)
+        {
             instrumentNames.append(nameValue.toString());
         }
         m_drumGrid->setInstrumentNames(instrumentNames);
@@ -1829,7 +1903,6 @@ void MainWindow::onAddColumnClicked()
 void MainWindow::onRemoveColumnClicked()
 {
     m_drumGrid->removeColumn();
-
 }
 
 void MainWindow::onStepCountChanged(int newCount)
