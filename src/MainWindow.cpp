@@ -868,6 +868,7 @@ void MainWindow::connectSignals() {
 
     if (m_drumGrid) {
         connect(m_drumGrid, &DrumGrid::stepCountChanged, this, &MainWindow::onStepCountChanged);
+        connect(m_drumGrid, &DrumGrid::columnCountChanged, this, &MainWindow::onColumnCountChanged);
     }
 
     // Connexion pour mettre à jour l'affichage du nombre d'instruments avec limite
@@ -1823,47 +1824,12 @@ void MainWindow::handleNetworkMessage(MessageType type, const QJsonObject &data)
 void MainWindow::onAddColumnClicked()
 {
     m_drumGrid->addColumn();
-
-    // Synchronisation réseau si connecté
-    if (m_networkManager->isServerRunning() || m_networkManager->isClientConnected())
-    {
-        // Envoyer l'état complet de la grille avec le nouveau nombre de colonnes
-        QJsonObject gridState = m_drumGrid->getGridState();
-        gridState["instrumentNames"] = QJsonArray::fromStringList(m_audioEngine->getInstrumentNames());
-        QByteArray message = Protocol::createSyncResponseMessage(gridState);
-
-        if (m_networkManager->isServer())
-        {
-            m_networkManager->broadcastMessage(message);
-        }
-        else
-        {
-            m_networkManager->sendMessage(message);
-        }
-    }
 }
 
 void MainWindow::onRemoveColumnClicked()
 {
     m_drumGrid->removeColumn();
 
-    // Synchronisation réseau si connecté
-    if (m_networkManager->isServerRunning() || m_networkManager->isClientConnected())
-    {
-        // Envoyer l'état complet de la grille avec le nouveau nombre de colonnes
-        QJsonObject gridState = m_drumGrid->getGridState();
-        gridState["instrumentNames"] = QJsonArray::fromStringList(m_audioEngine->getInstrumentNames());
-        QByteArray message = Protocol::createSyncResponseMessage(gridState);
-
-        if (m_networkManager->isServer())
-        {
-            m_networkManager->broadcastMessage(message);
-        }
-        else
-        {
-            m_networkManager->sendMessage(message);
-        }
-    }
 }
 
 void MainWindow::onStepCountChanged(int newCount)

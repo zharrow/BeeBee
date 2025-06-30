@@ -359,19 +359,40 @@ void DrumServer::processClientMessage(QTcpSocket *socket, const QByteArray &mess
 
     case MessageType::GRID_UPDATE:
     {
+        qDebug() << "[SERVER] GRID_UPDATE reçu";
         GridCell cell = GridCell::fromJson(content);
         QByteArray broadcastMsg = Protocol::createGridUpdateMessage(cell);
         broadcastMessage(broadcastMsg);
-        qDebug() << "[SERVER] GRID_UPDATE reçu et broadcasté";
         break;
     }
 
     case MessageType::COLUMN_UPDATE:
     {
+        qDebug() << "[SERVER] COLUMN_UPDATE reçu";
         int columnCount = content["columnCount"].toInt();
         QByteArray broadcastMsg = Protocol::createColumnUpdateMessage(columnCount);
         broadcastMessage(broadcastMsg);
-        qDebug() << "[SERVER] COLUMN_UPDATE broadcasté, nouvelles colonnes:" << columnCount;
+        break;
+    }
+
+    case MessageType::INSTRUMENT_SYNC:
+    {
+        qDebug() << "[SERVER] INSTRUMENT_SYNC reçu";
+        QStringList instruments = content["instruments"].toVariant().toStringList();
+        QByteArray broadcastMsg = Protocol::createInstrumentSyncMessage(instruments);
+        broadcastMessage(broadcastMsg);
+        break;
+    }
+
+    case MessageType::SYNC_RESPONSE:
+    {
+        qDebug() << "[SERVER] SYNC_RESPONSE reçu (probablement COLUMN_UPDATE mal encodé)";
+        if (content.contains("columnCount")) {
+            int columnCount = content["columnCount"].toInt();
+            QByteArray broadcastMsg = Protocol::createColumnUpdateMessage(columnCount);
+            broadcastMessage(broadcastMsg);
+            qDebug() << "[SERVER] COLUMN_UPDATE broadcasté avec" << columnCount << "colonnes";
+        }
         break;
     }
 

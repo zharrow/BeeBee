@@ -168,8 +168,7 @@ QByteArray Protocol::createErrorMessage(const QString& error) {
 // Méthode pour synchroniser les instruments
 QByteArray Protocol::createInstrumentSyncMessage(const QStringList& instrumentNames) {
     QJsonObject data;
-    data["instrumentNames"] = QJsonArray::fromStringList(instrumentNames);
-    data["instrumentCount"] = instrumentNames.size();
+    data["instruments"] = QJsonArray::fromStringList(instrumentNames);
     return createMessage(MessageType::INSTRUMENT_SYNC, data);
 }
 
