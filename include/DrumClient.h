@@ -25,6 +25,7 @@ public:
 signals:
     void gridCellUpdated(const GridCell& cell);
     void connected();
+    void columnCountReceived(int columnCount);
     void disconnected();
     void messageReceived(const QByteArray& message);
     void errorOccurred(const QString& error);

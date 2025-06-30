@@ -47,6 +47,7 @@ signals:
     void cellClicked(int row, int col, bool active);
     void stepTriggered(int step, const QList<int>& activeInstruments);
     void stepCountChanged(int newCount);
+    void columnCountChanged(int newCount);
     void instrumentCountChanged(int newCount);
 
 private slots:

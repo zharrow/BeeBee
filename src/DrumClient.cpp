@@ -246,6 +246,13 @@ void DrumClient::processMessage(const QByteArray &data) {
         break;
     }
 
+    case MessageType::COLUMN_UPDATE:
+    {
+        int columnCount = content["columnCount"].toInt();
+        emit columnCountReceived(columnCount);
+        break;
+    }
+
     case MessageType::GRID_UPDATE: {
         GridCell cell = GridCell::fromJson(content);
         emit gridCellUpdated(cell);

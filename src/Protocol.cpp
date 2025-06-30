@@ -50,6 +50,13 @@ bool Protocol::parseMessage(const QByteArray& data, MessageType& type, QJsonObje
     return true;
 }
 
+QByteArray Protocol::createColumnUpdateMessage(int columnCount) {
+    QJsonObject data;
+    data["columnCount"] = columnCount;
+    return createMessage(MessageType::COLUMN_UPDATE, data);
+}
+
+
 QByteArray Protocol::createJoinMessage(const QString& userName) {
     QJsonObject data;
     data["userName"] = userName;
@@ -161,8 +168,7 @@ QByteArray Protocol::createErrorMessage(const QString& error) {
 // Méthode pour synchroniser les instruments
 QByteArray Protocol::createInstrumentSyncMessage(const QStringList& instrumentNames) {
     QJsonObject data;
-    data["instrumentNames"] = QJsonArray::fromStringList(instrumentNames);
-    data["instrumentCount"] = instrumentNames.size();
+    data["instruments"] = QJsonArray::fromStringList(instrumentNames);
     return createMessage(MessageType::INSTRUMENT_SYNC, data);
 }
 
@@ -177,6 +183,7 @@ QString Protocol::messageTypeToString(MessageType type) {
     case MessageType::USER_JOINED: return "USER_JOINED";
     case MessageType::USER_LEFT: return "USER_LEFT";
     case MessageType::HOST_CHANGED: return "HOST_CHANGED";
+    case MessageType::COLUMN_UPDATE: return "COLUMN_UPDATE";
     case MessageType::JOIN_SESSION: return "JOIN_SESSION";
     case MessageType::GRID_UPDATE: return "GRID_UPDATE";
     case MessageType::TEMPO_CHANGE: return "TEMPO_CHANGE";
@@ -202,6 +209,7 @@ MessageType Protocol::stringToMessageType(const QString& str) {
     if (str == "USER_LEFT") return MessageType::USER_LEFT;
     if (str == "HOST_CHANGED") return MessageType::HOST_CHANGED;
     if (str == "JOIN_SESSION") return MessageType::JOIN_SESSION;
+    if (str == "COLUMN_UPDATE") return MessageType::COLUMN_UPDATE;
     if (str == "GRID_UPDATE") return MessageType::GRID_UPDATE;
     if (str == "TEMPO_CHANGE") return MessageType::TEMPO_CHANGE;
     if (str == "PLAY_STATE") return MessageType::PLAY_STATE;
